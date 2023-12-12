@@ -60,3 +60,17 @@ rsconnect/
 # Keys 
 *.env
 *.Renviron
+
+
+# Default to ignoring files in the database and notebook folders
+
+database/*
+notebook/*
+
+# Exceptions 
+
+!database/placeholder.md
+
+!notebook/placeholder.md
+!notebook/report.qmd
+!notebook/report.html
