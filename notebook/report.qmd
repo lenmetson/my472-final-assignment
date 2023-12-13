@@ -1,0 +1,13 @@
+---
+title: "MY472 Summative Project"
+author: "Candidate 30552"
+---
+
+```{r, include=FALSE} 
+knitr::opts_chunk$set(echo = FALSE, eval = FALSE)
+```
+
+# Code appendix
+```{r ref.label=knitr::all_labels(), echo=TRUE} 
+
+```
