@@ -1,0 +1,23 @@
+---
+title: "MY472 Summative 2"
+author: "Candidate 30552"
+---
+
+```{r, include=FALSE} 
+knitr::opts_chunk$set(echo = FALSE, eval = FALSE)
+```
+
+Hello!
+
+
+```{r, eval = TRUE}
+test <- "hi!"
+
+print(test)
+```
+
+
+# Code appendix
+```{r ref.label=knitr::all_labels(), echo=TRUE} 
+
+```
