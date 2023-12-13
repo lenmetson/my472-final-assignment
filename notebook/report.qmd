@@ -1,6 +1,9 @@
 ---
 title: "MY472 Summative 2"
 author: "Candidate 30552"
+format: 
+    html:
+        embed-resources: true 
 ---
 
 ```{r, include=FALSE} 
