@@ -1,13 +1,28 @@
-# Using RStudio as parent image
-FROM rocker/r-ver:4.3.0
+# Use the official Ubuntu base image
+FROM ubuntu:latest
 
-RUN /rocker_scripts/install_pandoc.sh
-RUN /rocker_scripts/install_quarto.sh
+# Set non-interactive mode
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install required packages
-RUN R -e "install.packages( \
-    c('DBI', 'RSQLite', 'xml2', 'rvest', 'lubridate'), \
-    dependencies=TRUE, \
-    repos='http://cran.rstudio.com/')"
+# Update the package list and install necessary dependencies
+RUN apt-get update && apt-get install -y \
+    r-base \
+    pandoc \
+    texlive \
+    && rm -rf /var/lib/apt/lists/*
 
-CMD ["/init"]
+# Install the Quarto package for R
+RUN R -e "install.packages('quarto', repos='http://cran.rstudio.com/')"
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the local directory into the container
+COPY . /app
+
+# Default command to run when the container starts
+CMD ["R"]
+
+# Example: To knit a Quarto file named "example.qmd" to HTML, use the following command:
+# docker run -v $(pwd):/app myquartocontainer R -e "quarto::render('example.qmd', output_format = 'html_document')"
+
