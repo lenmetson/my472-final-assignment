@@ -6,10 +6,7 @@ format:
         embed-resources: true 
 ---
 
-# Code appendix
-```{r ref.label=knitr::all_labels(), echo=TRUE} 
-
-```
+Test text 
 
 ```{r, include=FALSE} 
 knitr::opts_chunk$set(echo = FALSE, eval = FALSE)
