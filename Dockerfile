@@ -26,3 +26,4 @@ CMD ["R"]
 # Example: To knit a Quarto file named "example.qmd" to HTML, use the following command:
 # docker run -v $(pwd):/app myquartocontainer R -e "quarto::render('example.qmd', output_format = 'html_document')"
 
+
