@@ -1,4 +1,4 @@
-FROM rocker/r-ver:4.3.0
+FROM rocker/r-ver
 
 ENV S6_VERSION=v2.1.0.2
 ENV RSTUDIO_VERSION=2023.06.0+421
