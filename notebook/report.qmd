@@ -31,15 +31,19 @@ load_packages(c(
     "tidyverse",
     "here",
     "DBI",
-    "RSQLite"
+    "RSQLite",
+    "httr"
     ))
 
 ```
 
+# Data 
+
+To collect questions from the API, I first request a list of all questions. Contained 
+
 ```{r, eval = TRUE}
 db <- DBI::dbConnect(RSQLite::SQLite(), here("database/parliament_database.sqlite"))
 ```
-
 
 
 ```{r, eval = TRUE}
