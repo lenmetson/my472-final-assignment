@@ -89,7 +89,7 @@ pull_all_written_qs <- function(endpoint_url){
 
 print(paste0("Oral Qs started at ", Sys.time()))
 oral_questions <- pull_all_oral_qs("https://oralquestionsandmotions-api.parliament.uk/oralquestions/list")
-saveRDS(written_questions, "data/oral_questions.RDS")
+saveRDS(oral_questions, "data/oral_questions.RDS")
 print(paste0("Oral Qs done at ", Sys.time()))
 
 
