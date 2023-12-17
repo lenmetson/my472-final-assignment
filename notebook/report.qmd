@@ -42,7 +42,7 @@ load_packages(c(
 To collect questions from the API, I first request a list of all questions. Contained 
 
 ```{r, eval = TRUE}
-db <- DBI::dbConnect(RSQLite::SQLite(), here("database/parliament_database.sqlite"))
+db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 ```
 
 
