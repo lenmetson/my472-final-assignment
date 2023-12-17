@@ -64,6 +64,7 @@ rsconnect/
 
 # Default to ignoring files in the database and notebook folders
 
+data/*
 database/*
 notebook/*
 
