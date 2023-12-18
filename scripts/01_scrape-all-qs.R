@@ -1,34 +1,29 @@
 library(httr)
 library(tidyverse)
 
-pull_n_oral <- function(endpoint_url){
-    resp <- GET(paste0(endpoint_url, "?parameters.take=1")) |> httr::content("parsed")
-    n <- resp$PagingInfo$GlobalTotal
-    return(n)
-}
-
-pull_n_written <- function(endpoint_url){
-    resp <- GET(paste0(endpoint_url, "?parameters.take=1")) |> httr::content("parsed")
-    n <- resp$totalResults
-    return(n)
-}
-
 get_qs <- function(endpoint_url, n_skip = 0){
-    url <- paste0(endpoint_url, "?parameters.skip=", n_skip, "&parameters.take=100")
+  url <- paste0(
+    endpoint_url, 
+    "?parameters.skip=",
+    n_skip, 
+    "&parameters.take=100")
 
-    response <- 
-        httr::GET(url) |>
-        httr::content("parsed")
+  response <-
+    GET(url) |>
+    content("parsed")
 
-    return(response)
+  return(response)
 }
 
 
 # Define functions to pull all questions 
 
 pull_all_oral_qs <- function(endpoint_url){
+  
   # Calculate how many questions are in the end point
-  n <- pull_n_oral(endpoint_url)
+  n_resp <- GET(paste0(endpoint_url, "?parameters.take=1")) |>
+    content("parsed")
+  n <- n_resp$PagingInfo$GlobalTotal
 
   # Questions can be pulled in batches of 100,
   # calculate how many time we will have to pull
@@ -46,11 +41,11 @@ pull_all_oral_qs <- function(endpoint_url){
       response <- response$Response
 
     } else { # On all other iterations, append to existing list
-      
+
       response_new <- get_qs(endpoint_url, n_skip)
       response_new <- response_new$Response
       response <- c(response, response_new) # Merge responses
-    
+
     }
 
     print(paste0(i, " of ", n_loops, " done.")) # Print progress message
@@ -65,7 +60,10 @@ pull_all_oral_qs <- function(endpoint_url){
 pull_all_written_qs <- function(endpoint_url){
 
   # Calculate how many questions are in the end point
-  n <- pull_n_oral(endpoint_url)
+  n_resp <- GET(paste0(endpoint_url, "?parameters.take=1")) |>
+    content("parsed")
+  n <- n_resp$totalResults
+
 
   # Questions can be pulled in batches of 100,
   # calculate how many time we will have to pull
