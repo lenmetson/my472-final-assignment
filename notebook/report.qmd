@@ -37,20 +37,44 @@ load_packages(c(
 
 ```
 
+
+```{r, eval = TRUE}
+
+db_table_check <- function(database, table){
+  
+  rows <- dbGetQuery(database, paste0("SELECT COUNT(1) FROM ", table))
+  cols <- dbListFields(database, table)
+  cols_n <- length(cols)
+  
+  result = list(
+    n_rows = rows[[1]],
+    n_cols = cols_n,
+    col_names = cols)
+
+  return(result)
+}
+
+```
 # Data 
+
+
+```{r, eval = TRUE}
+db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
+```
+
+
 
 Tables: 
 
 1. questions
 2. questions_full_text
 3. mps
-4. constituencies
+4. ministries 
+5. constituencies
+
+The main problem with a relational database is is that characteristics change. So I keep lots in the question table (e.g. current, party etc)
 
 To collect questions from the API, I first request a list of all questions. Contained 
-
-```{r, eval = TRUE}
-db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
-```
 
 First, I scraped all questions availble from the written and oral endpoints. Both endpoints only return up to 100 questions with one request. However, you can skip responses. Therefore, you can retrieve all questions by looping through... 
 
@@ -113,46 +137,6 @@ pull_all_oral_qs <- function(endpoint_url){
   return(response)
 }
 
-pull_all_written_qs <- function(endpoint_url){
-
-  # Calculate how many questions are in the end point
-  n_resp <- GET(paste0(endpoint_url, "?parameters.take=1")) |>
-    content("parsed")
-  n <- n_resp$totalResults
-
-
-  # Questions can be pulled in batches of 100,
-  # calculate how many time we will have to pull
-  n_loops <- ceiling(n / 100)
-
-  print(paste0("Written Qs started at ", Sys.time()))
-
-  for (i in 1:n_loops) {
-
-    n_skip <- (i - 1) * 100 # Skip however many 100s the loop has run
-
-    if (i == 1) { # On first iteration, make new list
-
-      response <- get_qs(endpoint_url, n_skip)
-      response <- response$results
-
-    } else { # On all other iterations, append to existing list
-
-      response_new <- get_qs(endpoint_url, n_skip)
-      response_new <- response_new$results
-      response <- c(response, response_new) # Merge responses
-
-    }
-
-    print(paste0(i, " of ", n_loops, " done.")) # Print progress message
-    Sys.sleep(1) # Sleep to avoid hammering the API 
-
-  }
-
-  print(paste0("Written Qs done at ", Sys.time()))
-  return(response)
-}
-
 ## APPLY FUNCTIONS
 
 oral_questions <- pull_all_oral_qs(
@@ -160,13 +144,155 @@ oral_questions <- pull_all_oral_qs(
 
 saveRDS(oral_questions, "data/oral_questions.RDS")
 
-written_questions <- pull_all_written_qs(
-  "https://questions-statements-api.parliament.uk/api/writtenquestions/questions")
+```
 
-saveRDS(written_questions, "data/written_questions.RDS")
+
+```{r}
+oral_questions <- readRDS("data/oral_questions.RDS")
+
+### Convert elements of the list into tables ###
+
+# Members asking
+
+for (i in seq_along(oral_questions)) {
+  if (i == 1) {
+
+    # Extract asking member information
+    member_df <- data.frame(lapply(
+      oral_questions[[i]]$AskingMember,
+      function(x) ifelse(is.null(x), NA, x)))
+
+    member_df$question_id <- oral_questions[[i]]$Id
+
+    oral_questions[[i]]$AskingMember <- NULL 
+  } else {
+
+    member_df2 <- data.frame(lapply(
+      oral_questions[[i]]$AskingMember,
+      function(x) ifelse(is.null(x), NA, x)))
+
+    member_df2$question_id <- oral_questions[[i]]$Id
+    member_df <- rbind(member_df, member_df2)
+
+    oral_questions[[i]]$AskingMember <- NULL
+  }
+ print(paste0("MEMBERS: ", i, "/", length(oral_questions), " done."))
+}
+
+# Ministers answering
+
+minister_df <- data.frame() # Initialise empty dataframe 
+
+for (i in seq_along(oral_questions)) {
+  if (is.null(oral_questions[[i]]$AnsweringMinister) == FALSE){
+    
+    if (nrow(minister_df) == 0) { # Check whether this is the first to have an answering minister
+
+      minister_df <- data.frame(lapply(
+        oral_questions[[i]]$AnsweringMinister,
+        function(x) ifelse(is.null(x), NA, x)))
+
+      minister_df$question_id <- oral_questions[[i]]$Id
+
+      oral_questions[[i]]$AnsweringMinister <- NULL # Remove old sublist
+
+    } else {
+
+      minister_df2 <- data.frame(lapply(
+        oral_questions[[i]]$AnsweringMinister,
+        function(x) ifelse(is.null(x), NA, x)))
+
+      minister_df2$question_id <- oral_questions[[i]]$Id
+
+      minister_df <- rbind(minister_df, minister_df2)
+
+      oral_questions[[i]]$AnsweringMinister <- NULL # Remove old sublist
+    }
+
+  } else {
+    oral_questions[[i]][["AnsweringMinister"]] <- NULL
+  }
+ print(paste0("MINISTERS: ", i, "/", length(oral_questions), " done."))
+}
+
+# Questions
+
+for (i in seq_along(oral_questions)) {
+  if (i == 1){
+    question_df <- data.frame(lapply(
+      oral_questions[[i]],
+      function(x) ifelse(is.null(x), NA, x)))
+  } else {
+    question_df2 <- data.frame(lapply(
+      oral_questions[[i]],
+      function(x) ifelse(is.null(x), NA, x)))
+
+    question_df <- rbind(question_df, question_df2)
+  }
+ print(paste0("QUESTIONS: ", i, "/", length(oral_questions), " done."))
+}
+
+rm(member_df2, minister_df2, question_df2, i)
+
+### Save matching tables ###
+
+party_table <- member_df %>%
+  select(PartyId, Party) %>%
+  unique()
+
+answering_body_table <- question_df %>%
+  select(AnsweringBodyId, AnsweringBody) %>%
+  unique()
+
+
+### Clean dataframes and merge into one table ####
+
+question_df <- question_df %>%
+  select(
+    question_id = Id,
+    question_short_text = QuestionText,
+    question_status = Status,
+    question_tabled_when = TabledWhen,
+    question_answering_when = AnsweringWhen,
+    question_answering_body_id = AnsweringBodyId)
+
+minister_df <- minister_df %>%
+  select(
+    question_id,
+    minister_Mnis_ID = MnisId,
+    minister_constituency = Constituency,
+    minister_party_ID = PartyId)
+
+member_df <- member_df %>%
+  select(
+    question_id,
+    member_asking_Mnis_ID = MnisId,
+    member_asking_constituency = Constituency,
+    member_asking_party_ID = PartyId)
+
+
+question_table_main <- 
+  left_join(question_df, member_df, by = "question_id")
+
+question_table_main <- 
+  left_join(question_table_main, minister_df, by = "question_id")
+```
+
+
+```{r}
+
+dbWriteTable(db, "oral_questions", question_table_main) 
+dbWriteTable(db, "parties", party_table) 
+dbWriteTable(db, "answering_bodies", answering_body_table) 
 
 ```
 
+
+```{r}
+db_table_check(db, "oral_questions")
+db_table_check(db, "parties")
+db_table_check(db, "answering_bodies")
+```
 
 ```{r, eval = TRUE}
 # Disconnect from local database
