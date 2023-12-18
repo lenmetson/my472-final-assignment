@@ -55,6 +55,10 @@ db_table_check <- function(database, table){
 }
 
 ```
+
+
+# Introduciton 
+
 # Data 
 
 
@@ -298,6 +302,10 @@ db_table_check(db, "answering_bodies")
 # Disconnect from local database
 DBI::dbDisconnect(db)
 ```
+
+# Analysis 
+
+- Measuring question topic 
 
 # Code appendix
 ```{r ref.label=knitr::all_labels(), echo=TRUE} 
