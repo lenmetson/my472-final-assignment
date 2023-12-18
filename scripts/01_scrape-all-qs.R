@@ -24,76 +24,94 @@ get_qs <- function(endpoint_url, n_skip = 0){
 }
 
 
-# Define functions to pull all 
+# Define functions to pull all questions 
+
 pull_all_oral_qs <- function(endpoint_url){
+  # Calculate how many questions are in the end point
+  n <- pull_n_oral(endpoint_url)
+
+  # Questions can be pulled in batches of 100,
+  # calculate how many time we will have to pull
+  n_loops <- ceiling(n / 100)
+
+  print(paste0("Oral Qs done at ", Sys.time()))
+
+  for(i in 1:n_loops){
     
-    # Calculate how many questions are in the end point
-    n <- pull_n_oral(endpoint_url)
+    n_skip <- (i-1)*100 # Skip however many 100s the loop has run
 
+    if(i==1){ # On first iteration, make new list
 
-    # Questions can be pulled in batches of 100, calculate how many time we will have to pull
-    n_loops <- ceiling(n/100)
+      response <- get_qs(endpoint_url, n_skip)
+      response <- response$Response
 
-    for(i in 1:n_loops){ 
-
-        n_skip <- (i-1)*100 # Skip however many 100s the loop has run
-
-        if(i==1){ # On first iteration, make new list
-
-            response <- get_qs(endpoint_url, n_skip)
-            response <- response$Response
-
-        } else { # On all other iterations, append to existing list 
-            responseNew <- get_qs(endpoint_url, n_skip)
-            responseNew <- responseNew$Response
-
-            response <- c(response, responseNew) # Merge responses 
-        }
-
-        Sys.sleep(1) # Sleep to avoid hammering the API
+    } else { # On all other iterations, append to existing list
+      
+      response_new <- get_qs(endpoint_url, n_skip)
+      response_new <- response_new$Response
+      response <- c(response, response_new) # Merge responses
+    
     }
 
- return(response)
+    print(paste0(i, " of ", n_loops, " done.")) # Print progress message
+    Sys.sleep(1) # Sleep to avoid hammering the API
 
+  }
+
+  print(paste0("Oral Qs done at ", Sys.time()))
+  return(response)
 }
 
 pull_all_written_qs <- function(endpoint_url){
+
+  # Calculate how many questions are in the end point
+  n <- pull_n_oral(endpoint_url)
+
+  # Questions can be pulled in batches of 100,
+  # calculate how many time we will have to pull
+  n_loops <- ceiling(n / 100)
+
+  print(paste0("Written Qs started at ", Sys.time()))
+
+  for(i in 1:n_loops){
     
-    # Calculate how many questions are in the end point
-    n <- pull_n_written(endpoint_url)
-    # Questions can be pulled in batches of 100, calculate how many time we will have to pull
-    n_loops <- ceiling(n/100)
+    n_skip <- (i-1)*100 # Skip however many 100s the loop has run
 
-    for(i in 1:n_loops){ 
+    if(i==1){ # On first iteration, make new list
 
-        n_skip <- (i-1)*100 # Skip however many 100s the loop has run
+      response <- get_qs(endpoint_url, n_skip)
+      response <- response$Response
 
-        if(i==1){ # On first iteration, make new list
-
-            response <- get_qs(endpoint_url, n_skip)
-            response <- response$results
-
-        } else { # On all other iterations, append to existing list 
-            responseNew <- get_qs(endpoint_url, n_skip)
-            responseNew <- responseNew$results
-
-            response <- c(response, responseNew) # Merge responses 
-        }
-
-        Sys.sleep(1) # Sleep to avoid hammering the API
+    } else { # On all other iterations, append to existing list
+      
+      response_new <- get_qs(endpoint_url, n_skip)
+      response_new <- response_new$Response
+      response <- c(response, response_new) # Merge responses
+    
     }
 
- return(response)
+    print(paste0(i, " of ", n_loops, " done.")) # Print progress message
+    Sys.sleep(1) # Sleep to avoid hammering the API  
 
+  }
+  
+  print(paste0("Written Qs done at ", Sys.time()))
+  
+  return(response)
 }
 
-print(paste0("Oral Qs started at ", Sys.time()))
-oral_questions <- pull_all_oral_qs("https://oralquestionsandmotions-api.parliament.uk/oralquestions/list")
+## APPLY FUNCTIONS 
+
+oral_questions <- pull_all_oral_qs(
+  "https://oralquestionsandmotions-api.parliament.uk/oralquestions/list")
+
 saveRDS(oral_questions, "data/oral_questions.RDS")
-print(paste0("Oral Qs done at ", Sys.time()))
 
 
-print(paste0("Written Qs started at ", Sys.time()))
-written_questions <- pull_all_written_qs("https://questions-statements-api.parliament.uk/api/writtenquestions/questions")
+
+
+written_questions <- pull_all_written_qs(
+  "https://questions-statements-api.parliament.uk/api/writtenquestions/questions")
+
 saveRDS(written_questions, "data/written_questions.RDS")
-print(paste0("Written Qs done at ", Sys.time()))
+
