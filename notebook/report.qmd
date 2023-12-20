@@ -54,6 +54,12 @@ db_table_check <- function(database, table){
   return(result)
 }
 
+# Define function to print loop progress 
+
+progress_perc <- function(num_done, total, additional_message = ""){
+    cat("\r", paste0(additional_message, " ", round(num_done/total*100), "% "))
+}
+
 ```
 
 
@@ -66,6 +72,11 @@ db_table_check <- function(database, table){
 db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 ```
 
+I draw on 3 sources of data 
+
+1. Data on oral questions 
+2. Data on MP characteristics from X
+3. Election data from X
 
 
 Tables: 
@@ -180,7 +191,10 @@ for (i in seq_along(oral_questions)) {
 
     oral_questions[[i]]$AskingMember <- NULL
   }
- print(paste0("MEMBERS: ", i, "/", length(oral_questions), " done."))
+
+ progress_perc(i, length(oral_questions), "MEMBERS:")
+
+
 }
 
 # Ministers answering
@@ -216,7 +230,9 @@ for (i in seq_along(oral_questions)) {
   } else {
     oral_questions[[i]][["AnsweringMinister"]] <- NULL
   }
- print(paste0("MINISTERS: ", i, "/", length(oral_questions), " done."))
+
+ progress_perc(i, length(oral_questions), "MINISTERS:")
+
 }
 
 # Questions
@@ -233,21 +249,12 @@ for (i in seq_along(oral_questions)) {
 
     question_df <- rbind(question_df, question_df2)
   }
- print(paste0("QUESTIONS: ", i, "/", length(oral_questions), " done."))
+
+ progress_perc(i, length(oral_questions), "QUESTIONS:")
+
 }
 
 rm(member_df2, minister_df2, question_df2, i)
-
-### Save matching tables ###
-
-party_table <- member_df %>%
-  select(PartyId, Party) %>%
-  unique()
-
-answering_body_table <- question_df %>%
-  select(AnsweringBodyId, AnsweringBody) %>%
-  unique()
-
 
 ### Clean dataframes and merge into one table ####
 
@@ -263,16 +270,13 @@ question_df <- question_df %>%
 minister_df <- minister_df %>%
   select(
     question_id,
-    minister_Mnis_ID = MnisId,
-    minister_constituency = Constituency,
-    minister_party_ID = PartyId)
+    minister_Mnis_ID = MnisId
+    )
 
 member_df <- member_df %>%
   select(
     question_id,
-    member_asking_Mnis_ID = MnisId,
-    member_asking_constituency = Constituency,
-    member_asking_party_ID = PartyId)
+    member_asking_Mnis_ID = MnisId)
 
 
 question_table_main <- 
@@ -282,30 +286,98 @@ question_table_main <-
   left_join(question_table_main, minister_df, by = "question_id")
 ```
 
-
 ```{r}
 
-dbWriteTable(db, "oral_questions", question_table_main) 
-dbWriteTable(db, "parties", party_table) 
-dbWriteTable(db, "answering_bodies", answering_body_table) 
-
-```
-
-
-```{r}
+dbWriteTable(db, "oral_questions", question_table_main, overwrite = TRUE)
 db_table_check(db, "oral_questions")
-db_table_check(db, "parties")
-db_table_check(db, "answering_bodies")
+
 ```
+
+
+```{r}
+questions <- dbGetQuery(db, 
+  "
+  SELECT *
+  FROM oral_questions
+
+  LIMIT 100
+  "
+  )
+
+glimpse(questions)
+```
+
+Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date 
+
+```{r}
+# Query the question database for the date the question was tables and who asked it 
+questions <- dbGetQuery(db, 
+  "
+  SELECT member_asking_Mnis_ID, question_tabled_when
+  FROM oral_questions
+  "
+)
+
+questions <- unique(questions) # Avoid pulling the same queries by considering unique MP-date combinations
+
+questions <- questions %>%
+  mutate(question_tabled_when = str_extract(question_tabled_when, ".+?(?=T)"))
+```
+
+```{r}
+pull_members <- function(base_url, df) {
+
+  for (i in seq_along(df$member_asking_Mnis_ID)) {
+
+    url <- paste0(base_url, "/", df$member_asking_Mnis_ID[i], "?detailsForDate=", df$question_tabled_when[i]) 
+
+    if (i == 1) {
+      response <- GET(url) %>% content("parsed")
+      response <- response[[1]]
+    } else {
+      response_new <- GET(url) %>% content("parsed")
+      response_new <- response_new[[1]]
+      response <- c(response, response_new) # Merge responses
+    }
+    Sys.sleep(2)
+
+    progress_perc(i, length(df$member_asking_Mnis_ID), "Querying:")
+
+  }
+
+  print("Done.")
+
+  return(df)
+}
+
+
+members <- pull_members("https://members-api.parliament.uk/api/Members", questions)
+``` 
+
+
+Finally, we want to collect more information on the characteristics of MPs and their constituencies. 
+
+- MP characteristics
+  - On a date `/Members/4498?detailsForDate=2017-11-17` - can be looped by questions 
+- Constituency characteristics
+  - Previous electoral results 
+  - Socio-demographic features of the constituency
 
 ```{r, eval = TRUE}
 # Disconnect from local database
 DBI::dbDisconnect(db)
 ```
 
+DIAGRAM OF FINAL RELATIONAL DATABASE
+
 # Analysis 
 
 - Measuring question topic 
+
+  - Write back out to question table? 
+
+
+- Measuring important predictos 
 
 # Code appendix
 ```{r ref.label=knitr::all_labels(), echo=TRUE} 
