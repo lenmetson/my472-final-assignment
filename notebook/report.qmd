@@ -427,14 +427,40 @@ dbWriteTable(db, "members", members_df, overwrite = TRUE)
 
 ```{r}
 
-questions <- dbGetQuery(db, 
-  "
-  SELECT *
-  FROM members
-  "
+
+test_df <- data.frame(
+  member_date_valid = c("2021-07-01", "2019-09-25", "2017-11-29", "2021-08-31", "2023-04-01", "2020-09-22"),
+  member_Mnis_ID = c(4601, 4464, 345, 4831, 4601, 4464),
+  member_name_display = c("Andrew Bowie", "Melanie Onn", "Sir Edward Leigh", "Ian Byrne", "Andrew Bowie", "Melanie Onn"),
+  member_latest_party = c(4, 15, 4, 15, 4, 16),
+  member_gender = c("M", "F", "M", "M", "M", "F"),
+  member_latest_constituency = c(3096, 3502, 3492, 3584, 3096, 3502),
+  member_membership_start_date = c("2017-06-08T00:00:00", "2015-05-07T00:00:00", "1983-06-09T00:00:00", "2019-12-12T00:00:00", "2017-06-08T00:00:00", "2015-05-07T00:00:00"),
+  member_membership_end_date = c("NA", "2019-11-06T00:00:00", "NA", "NA", "NA", "2019-11-06T00:00:00"),
+  member_membership_end_reason = c("NA", "NA", "NA", "NA", "NA", "NA"),
+  member_name_full = c("Andrew Bowie MP", "Melanie Onn MP", "Rt Hon Sir Edward Leigh MP", "Ian Byrne MP", "Andrew Bowie MP", "Melanie Onn MP"),
+  member_name_list = c("Bowie, Andrew", "Onn, Melanie", "Leigh, Sir Edward", "Byrne, Ian", "Bowie, Andrew", "Onn, Melanie")
 )
 
+df_summarized <- test_df %>%
+  group_by(
+    member_Mnis_ID,
+    member_name_display,
+    member_latest_party,
+    member_gender,
+    member_latest_constituency,
+    member_membership_start_date,
+    member_membership_end_date,
+    member_membership_end_reason,
+    member_name_full,
+    member_name_list
+  ) %>%
+  summarize(
+    member_date_valid_min = min(member_date_valid), 
+    member_date_valid_max = max(member_date_valid)
+  )
 
+df_summarized$member_date_valid_min
 
 ```
 
