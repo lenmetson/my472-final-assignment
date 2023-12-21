@@ -15,7 +15,6 @@ load_packages(c(
     "httr"
     ))
 
-
 # Function defined by ChatGPT and adapted for the specific list structure here
 replace_null_with_na <- function(x) {
   if (is.list(x)) { # Checks for whether the item is a sublist 
@@ -24,7 +23,6 @@ replace_null_with_na <- function(x) {
     ifelse(is.null(x) || x == "null", "NA", x) 
   }
 }
-
 
 pull_members <- function(base_url, df) {
 
@@ -79,8 +77,6 @@ questions <- dbGetQuery(db,
   "
   SELECT member_asking_Mnis_ID, question_tabled_when
   FROM oral_questions
-  ORDER BY RANDOM()
-  LIMIT 10
   "
 )
 
@@ -113,8 +109,6 @@ for (i in seq_along(members)) {
     members_df <- rbind(members_df, members_df_new)
   }
 }
-
-glimpse(members_df)
 
 members_df <- members_df %>%
   select(
