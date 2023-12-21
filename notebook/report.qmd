@@ -60,6 +60,15 @@ progress_perc <- function(num_done, total, additional_message = ""){
     cat("\r", paste0(additional_message, " ", round(num_done/total*100), "% "))
 }
 
+replace_null_with_na <- function(x) {
+  if (is.list(x)) { # Checks for whether the item is a sublist 
+    lapply(x, replace_null_with_na) # if it is, apply the function for each of the elements within the sublist
+  } else { # If it isn't, simply apply the main function
+    ifelse(is.null(x) || x == "null", "NA", x) 
+  }
+}
+
+
 ```
 
 
@@ -352,7 +361,15 @@ pull_members <- function(base_url, df) {
 
 
 members <- pull_members("https://members-api.parliament.uk/api/Members", questions)
+
+saveRDS(members, "data/members.Rds")
 ``` 
+
+```{r}
+members <- readRDS("data/members.Rds")
+
+dplyr::glimpse(members)
+```
 
 
 Finally, we want to collect more information on the characteristics of MPs and their constituencies. 
@@ -362,6 +379,27 @@ Finally, we want to collect more information on the characteristics of MPs and t
 - Constituency characteristics
   - Previous electoral results 
   - Socio-demographic features of the constituency
+- What to add? 
+  - Education? from wikipedia? 
+
+
+
+Constituency info
+- We will get the cosntituency ID from the members pull. We can pull:
+  - Election results for each constituency over different elections 
+  - Shape files (for plotting later)
+- Would like to add 
+  - Basic demographic information 
+  - Economic indicators 
+  - Health indicators 
+
+```{r}
+
+db_table_check(db, "oral_questions")
+
+```
+
+
 
 ```{r, eval = TRUE}
 # Disconnect from local database
@@ -374,7 +412,11 @@ DIAGRAM OF FINAL RELATIONAL DATABASE
 
 - Measuring question topic 
 
+- https://www.cambridge.org/core/journals/political-analysis/article/crossdomain-topic-classification-for-political-texts/F074564984969CE168BCBCF5E7D931C8 - could be useful as pre-trained model 
+
   - Write back out to question table? 
+
+
 
 
 - Measuring important predictos 
