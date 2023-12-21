@@ -443,7 +443,7 @@ test_df <- data.frame(
 )
 
 df_summarized <- test_df %>%
-  group_by(
+  group_by( # Group by all variables apart from date
     member_Mnis_ID,
     member_name_display,
     member_latest_party,
@@ -455,12 +455,10 @@ df_summarized <- test_df %>%
     member_name_full,
     member_name_list
   ) %>%
-  summarize(
+  summarize( # Summarise earliest date this is valid for and latest. This gives us a range of vlaues where this combination is duplicated 
     member_date_valid_min = min(member_date_valid), 
     member_date_valid_max = max(member_date_valid)
   )
-
-df_summarized$member_date_valid_min
 
 ```
 
