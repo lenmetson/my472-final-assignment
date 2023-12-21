@@ -125,7 +125,6 @@ members_df <- members_df %>%
     member_name_list = nameListAs
   )
 
-
 members_df <- members_df %>%
   group_by( # Group by all variables apart from date
     member_Mnis_ID,

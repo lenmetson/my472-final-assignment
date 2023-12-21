@@ -316,7 +316,7 @@ questions <- dbGetQuery(db,
 glimpse(questions)
 ```
 
-Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date.
+Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked 
 
 ```{r}
 pull_members <- function(base_url, df) {
@@ -485,9 +485,6 @@ DIAGRAM OF FINAL RELATIONAL DATABASE
 - https://www.cambridge.org/core/journals/political-analysis/article/crossdomain-topic-classification-for-political-texts/F074564984969CE168BCBCF5E7D931C8 - could be useful as pre-trained model 
 
   - Write back out to question table? 
-
-
-
 
 - Measuring important predictos 
 
