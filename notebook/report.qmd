@@ -81,24 +81,27 @@ replace_null_with_na <- function(x) {
 db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 ```
 
-I draw on 3 sources of data 
+To store the data I collect, I will use a local relational database. This will improve the efficiency of the storage because... It will also allow me to query only the variables I need for anlausis 
 
-1. Data on oral questions 
-2. Data on MP characteristics from X
-3. Election data from X
+I draw on 4 endpoint from parlimanet's API to construct four three tables that I write out to database.
 
+1. Oral questions 
+2. Members
+3. Constituencies 
+4. Elections
 
 Tables: 
 
-1. questions
-2. questions_full_text
-3. mps
-4. ministries 
-5. constituencies
+1. oral_questions
+2. mps
+3. constituencies (containing election results)
 
-The main problem with a relational database is is that characteristics change. So I keep lots in the question table (e.g. current, party etc)
+I then will create an additional table with the results of the measurmeent I use to classify questions. 
 
-To collect questions from the API, I first request a list of all questions. Contained 
+4. question_topics 
+
+
+## Parliament API 
 
 First, I scraped all questions availble from the written and oral endpoints. Both endpoints only return up to 100 questions with one request. However, you can skip responses. Therefore, you can retrieve all questions by looping through... 
 
