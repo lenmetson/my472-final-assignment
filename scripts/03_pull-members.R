@@ -126,6 +126,24 @@ members_df <- members_df %>%
   )
 
 
+members_df <- members_df %>%
+  group_by( # Group by all variables apart from date
+    member_Mnis_ID,
+    member_name_display,
+    member_latest_party,
+    member_gender,
+    member_latest_constituency,
+    member_membership_start_date,
+    member_membership_end_date,
+    member_membership_end_reason,
+    member_name_full,
+    member_name_list
+  ) %>%
+  summarize( # Summarise earliest date this is valid for and latest. This gives us a range of vlaues where this combination is duplicated 
+    member_date_valid_min = min(member_date_valid), 
+    member_date_valid_max = max(member_date_valid)
+  )
+
 dbWriteTable(db, "members", members_df, overwrite = TRUE)
 
 # Disconnect from local database
