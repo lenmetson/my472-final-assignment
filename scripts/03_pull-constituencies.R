@@ -173,8 +173,6 @@ get_cons_election_results <- function(cons_id) {
   return(results)
 }
 
-pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
-
 
 print(paste0(Sys.time(), " | ELECTIONS ..."))
 cat("\n")
@@ -183,11 +181,18 @@ for (i in seq_along(constituencies$constituency_id)) {
   response <- get_cons_election_results(constituencies$constituency_id[i])
   response <- response[[1]]
 
+  response <- lapply(response, function(lst) {lapply(lst, replace_null_with_na)})
+
   constituencies$last_election_1_electorate[i] <- response[[1]]$electorate
   constituencies$last_election_1_turnout[i] <- response[[1]]$turnout  
   constituencies$last_election_1_majority[i] <- response[[1]]$majority
   constituencies$last_election_1_result[i] <- response[[1]]$result
-  constituencies$last_election_1_winning_party[i] <- response[[1]]$winningParty$id
+  # If no winner recorded, skip this and assign NA
+  if(length(response[[1]]$winningParty) > 1) { # When there is content in the winning party sublist, the length will be greater than 1
+    constituencies$last_election_1_winning_party[i] <- response[[1]]$winningParty$id
+  } else {
+     constituencies$last_election_1_winning_party[i] <- NA
+  }
   constituencies$last_election_1_election_ID[i] = response[[1]]$electionId
   constituencies$last_election_1_electionDate[i] = response[[1]]$electionDate
   constituencies$last_election_1_isGeneralElection[i] = response[[1]]$isGeneralElection
@@ -196,7 +201,12 @@ for (i in seq_along(constituencies$constituency_id)) {
   constituencies$last_election_2_turnout[i] <- response[[2]]$turnout 
   constituencies$last_election_2_majority[i] <- response[[2]]$majority
   constituencies$last_election_2_result[i] <- response[[2]]$result
-  constituencies$last_election_2_winning_party[i] <- response[[2]]$winningParty$id
+  # If no winner recorded, skip this and assign NA
+  if(length(response[[2]]$winningParty) > 1) {
+    constituencies$last_election_2_winning_party[i] <- response[[2]]$winningParty$id
+  } else {
+     constituencies$last_election_2_winning_party[i] <- NA
+  }
   constituencies$last_election_2_election_ID[i] = response[[2]]$electionId
   constituencies$last_election_2_electionDate[i] = response[[2]]$electionDate
   constituencies$last_election_2_isGeneralElection[i] = response[[2]]$isGeneralElection
@@ -205,7 +215,12 @@ for (i in seq_along(constituencies$constituency_id)) {
   constituencies$last_election_3_turnout[i] <- response[[3]]$turnout  
   constituencies$last_election_3_majority[i] <- response[[3]]$majority
   constituencies$last_election_3_result[i] <- response[[3]]$result
-  constituencies$last_election_3_winning_party[i] <- response[[3]]$winningParty$id
+  # If no winner recorded, skip this and assign NA
+  if(length(response[[3]]$winningParty) > 1) {
+    constituencies$last_election_3_winning_party[i] <- response[[3]]$winningParty$id
+  } else {
+     constituencies$last_election_3_winning_party[i] <- NA
+  }
   constituencies$last_election_3_election_ID[i] = response[[3]]$electionId
   constituencies$last_election_3_electionDate[i] = response[[3]]$electionDate
   constituencies$last_election_3_isGeneralElection[i] = response[[3]]$isGeneralElection
@@ -214,14 +229,22 @@ for (i in seq_along(constituencies$constituency_id)) {
   constituencies$last_election_4_turnout[i] <- response[[4]]$turnout   
   constituencies$last_election_4_majority[i] <- response[[4]]$majority
   constituencies$last_election_4_result[i] <- response[[4]]$result
-  constituencies$last_election_4_winning_party[i] <- response[[4]]$winningParty$id
+  # If no winner recorded, skip this and assign NA
+  if(length(response[[4]]$winningParty) > 1) {
+    constituencies$last_election_4_winning_party[i] <- response[[4]]$winningParty$id
+  } else {
+     constituencies$last_election_4_winning_party[i] <- NA
+  }
   constituencies$last_election_4_election_ID[i] = response[[4]]$electionId
   constituencies$last_election_4_electionDate[i] = response[[4]]$electionDate
   constituencies$last_election_4_isGeneralElection[i] = response[[4]]$isGeneralElection
 
   Sys.sleep(0.5)
-  setTxtProgressBar(pb, i)
+  
+  print(paste0(i, " of ", nrow(constituencies), " done."))
 }
+
+i = 332
 
 
 print(paste0(Sys.time(), " | ELECTIONS done."))
