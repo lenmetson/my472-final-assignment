@@ -33,9 +33,8 @@ cons <- cons %>%
     median_house_price_hoclib23 = NA
   )
 
-
-
 rD <- rsDriver(browser=c("firefox"), verbose = F, port = netstat::free_port(random = TRUE), chromever = NULL) 
+
 driver <- rD$client
 
 selector_list <- list()
