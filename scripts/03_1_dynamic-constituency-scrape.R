@@ -62,9 +62,8 @@ selector_list$uc_claimants <- "/html/body/div[1]/report-embed/div/div[1]/div/div
 
 selector_list$house_prices <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[39]/transform/div/div[3]/div/div/visual-modern/div/div/div/div[1]/div/div/div/div/div[2]/div[1]"
 
-#constituency_name = cons$cons_name[14]
 
-constituency_dash_scraper <- function(constituency_name){
+consituency_dash_scraper <- function(constituency_name){
 
   driver$navigate("https://commonslibrary.parliament.uk/constituency-dashboard/")
 
@@ -93,63 +92,29 @@ constituency_dash_scraper <- function(constituency_name){
 
   Sys.sleep(4)
 
-  tryCatch({
-    region_nation <- driver$findElement(using = "xpath", value = selector_list$region_nation)
-    region_nation_text <- region_nation$getElementText()[[1]]
-  }, error = function(e) {
-    region_nation_text <- NA
-  })
+  region_nation <- driver$findElement(using = "xpath", value = selector_list$region_nation)
+  region_nation_text <- region_nation$getElementText()[[1]]
 
-  tryCatch({
-    population <- driver$findElement(using = "xpath", value = selector_list$population)
-    population_text <- population$getElementText()[[1]]
-  }, error = function(e) {
-    population_text <- NA
-  })
+  population <- driver$findElement(using = "xpath", value = selector_list$population)
+  population_text <- population$getElementText()[[1]]
 
-  tryCatch({
-    area <- driver$findElement(using = "xpath", value = selector_list$area)
-    area_text <- area$getElementText()[[1]]
-  }, error = function(e) {
-    area_text <- NA
-  })
+  area <- driver$findElement(using = "xpath", value = selector_list$area)
+  area_text <- area$getElementText()[[1]]
 
-  tryCatch({
-    age_0_29 <- driver$findElement(using = "xpath", value = selector_list$age_0_29)
-    age_0_29_text <- age_0_29$getElementText()[[1]]
-  }, error = function(e) {
-    age_0_29_text <- NA
-  })
+  age_0_29 <- driver$findElement(using = "xpath", value = selector_list$age_0_29)
+  age_0_29_text <- age_0_29$getElementText()[[1]]
 
-  tryCatch({
-    age_30_64 <- driver$findElement(using = "xpath", value = selector_list$age_30_64)
-    age_30_64_text <- age_30_64$getElementText()[[1]]
-  }, error = function(e) {
-    age_30_64_text <- NA
-  })
+  age_30_64 <- driver$findElement(using = "xpath", value = selector_list$age_30_64)
+  age_30_64_text <- age_30_64$getElementText()[[1]] 
 
-  tryCatch({
-    age_65_plus <- driver$findElement(using = "xpath", value = selector_list$age_65_plus)
-    age_65_plus_text <- age_65_plus$getElementText()[[1]]
-  }, error = function(e) {
-    age_65_plus_text <- NA
-  })
+  age_65_plus <- driver$findElement(using = "xpath", value = selector_list$age_65_plus)
+  age_65_plus_text <- age_65_plus$getElementText()[[1]]
 
-  tryCatch({
-    uc_claimants <- driver$findElement(using = "xpath", value = selector_list$uc_claimants)
-    uc_claimants_text <- uc_claimants$getElementText()[[1]]
-  }, error = function(e) {
-    uc_claimants_text <- NA
-  })
+  uc_claimants <- driver$findElement(using = "xpath", value = selector_list$uc_claimants)
+  uc_claimants_text <- uc_claimants$getElementText()[[1]]
 
-  house_prices_text <- try({
-    house_prices <- driver$findElement(using = "xpath", value = selector_list$house_prices)
-    house_prices$getElementText()[[1]]
-  }, silent = TRUE)
-
-  if (inherits(house_prices_text, "try-error")) {
-    house_prices_text <- NA
-  }
+  house_prices <- driver$findElement(using = "xpath", value = selector_list$house_prices)
+  house_prices_text <- house_prices$getElementText()[[1]]
 
   Sys.sleep(1)
 
@@ -165,7 +130,7 @@ constituency_dash_scraper <- function(constituency_name){
 
 
 
-for (i in 14:15) { #length(cons$constituency_id)
+for (i in 14:16) { #length(cons$constituency_id)
 
   results <- constituency_dash_scraper(cons$cons_name[i])
 
