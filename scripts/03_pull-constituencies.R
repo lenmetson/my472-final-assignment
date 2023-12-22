@@ -31,7 +31,6 @@ MPs <- dbGetQuery(db,
   "
   SELECT * 
   FROM members 
-  LIMIT 100
   ")
 
 constituencies <- MPs$member_latest_constituency %>% 
@@ -43,33 +42,84 @@ constituencies <-
   ) %>%
   mutate(
 
-    GE19_electorate = NA,
-    GE19_turnout = NA,
-    GE19_majority = NA, 
-    GE19_result = NA, 
-    GE19_winning_party = NA,
+    cons_name = NA, 
+    cons_start_date = NA, 
+    cons_end_date = NA,
 
-    GE17_electorate = NA,
-    GE17_turnout = NA,
-    GE17_majority = NA, 
-    GE17_result = NA, 
-    GE17_winning_party = NA,
+    last_election_1_electorate = NA,
+    last_election_1_turnout = NA,
+    last_election_1_majority = NA, 
+    last_election_1_result = NA, 
+    last_election_1_winning_party = NA,
+    last_election_1_election_ID = NA,
+    last_election_1_electionDate = NA,
+    last_election_1_isGeneralElection = NA,
 
-    GE15_electorate = NA,
-    GE15_turnout = NA,
-    GE15_majority = NA, 
-    GE15_result = NA, 
-    GE15_winning_party = NA,
+    last_election_2_electorate = NA,
+    last_election_2_turnout = NA,
+    last_election_2_majority = NA, 
+    last_election_2_result = NA, 
+    last_election_2_winning_party = NA,
+    last_election_2_election_ID = NA,
+    last_election_2_electionDate = NA,
+    last_election_2_isGeneralElection = NA,
 
-    GE10_electorate = NA,
-    GE10_turnout = NA,
-    GE10_majority = NA, 
-    GE10_result = NA, 
-    GE10_winning_party = NA,
+    last_election_3_electorate = NA,
+    last_election_3_turnout = NA,
+    last_election_3_majority = NA, 
+    last_election_3_result = NA, 
+    last_election_3_winning_party = NA,
+    last_election_3_election_ID = NA,
+    last_election_3_electionDate = NA,
+    last_election_3_isGeneralElection = NA,
+
+    last_election_4_electorate = NA,
+    last_election_4_turnout = NA,
+    last_election_4_majority = NA, 
+    last_election_4_result = NA, 
+    last_election_4_winning_party = NA,
+    last_election_4_election_ID = NA,
+    last_election_4_electionDate = NA,
+    last_election_4_isGeneralElection = NA,
 
     shapefile = NA
     )
 
+
+### Basic details 
+
+pull_const_info <- function(cons_id) {
+  url <- paste0(
+    "https://members-api.parliament.uk/api/Location/Constituency/",
+    cons_id)
+
+    basic_info <- httr::GET(url) |>
+    httr::content("parsed")
+
+    return(basic_info)
+}
+
+pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
+
+
+print(paste0(Sys.time(), " | BASIC INFO ..."))
+cat("\n")
+
+for(i in seq_along(constituencies$constituency_id)) {
+  response <- pull_const_info(constituencies$constituency_id[i])
+  response <- response[[1]]
+
+  constituencies$cons_name[i] <- response$name
+  constituencies$cons_start_date[i] <- response$startDate
+  constituencies$cons_end_date[i] <- ifelse(is.null(response$endDate), NA, response$endDate)
+
+  Sys.sleep(0.5)
+  setTxtProgressBar(pb, i)
+}
+
+
+print(paste0(Sys.time(), " | BASIC INFO done."))
+cat("\n")
 
 ### Shape file
 
@@ -90,6 +140,10 @@ get_cons_shapefile <- function(cons_id) {
 # Execute function
 pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
 
+
+print(paste0(Sys.time(), " | SHAPE FILES ..."))
+cat("\n")
+
 for(i in seq_along(constituencies$constituency_id)) {
   response <- get_cons_shapefile(constituencies$constituency_id[i])
   response <- response[[1]]
@@ -99,6 +153,10 @@ for(i in seq_along(constituencies$constituency_id)) {
   Sys.sleep(0.5)
   setTxtProgressBar(pb, i)
 }
+
+
+print(paste0(Sys.time(), " | SHAPE FILES done."))
+cat("\n")
 
 ### Election results
 
@@ -117,47 +175,62 @@ get_cons_election_results <- function(cons_id) {
 
 pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
 
+
+print(paste0(Sys.time(), " | ELECTIONS ..."))
+cat("\n")
+
 for (i in seq_along(constituencies$constituency_id)) {
   response <- get_cons_election_results(constituencies$constituency_id[i])
   response <- response[[1]]
 
-  constituencies$GE19_electorate[i] <- response[[1]]$electorate
-  constituencies$GE19_turnout[i] <- response[[1]]$turnout  
-  constituencies$GE19_majority[i] <- response[[1]]$majority
-  constituencies$GE19_result[i] <- response[[1]]$result
-  constituencies$GE19_winning_party[i] <- response[[1]]$winningParty$id
+  constituencies$last_election_1_electorate[i] <- response[[1]]$electorate
+  constituencies$last_election_1_turnout[i] <- response[[1]]$turnout  
+  constituencies$last_election_1_majority[i] <- response[[1]]$majority
+  constituencies$last_election_1_result[i] <- response[[1]]$result
+  constituencies$last_election_1_winning_party[i] <- response[[1]]$winningParty$id
+  constituencies$last_election_1_election_ID[i] = response[[1]]$electionId
+  constituencies$last_election_1_electionDate[i] = response[[1]]$electionDate
+  constituencies$last_election_1_isGeneralElection[i] = response[[1]]$isGeneralElection
 
-  constituencies$GE17_electorate[i] <- response[[2]]$electorate
-  constituencies$GE17_turnout[i] <- response[[2]]$turnout 
-  constituencies$GE17_majority[i] <- response[[2]]$majority
-  constituencies$GE17_result[i] <- response[[2]]$result
-  constituencies$GE17_winning_party[i] <- response[[2]]$winningParty$id
+  constituencies$last_election_2_electorate[i] <- response[[2]]$electorate
+  constituencies$last_election_2_turnout[i] <- response[[2]]$turnout 
+  constituencies$last_election_2_majority[i] <- response[[2]]$majority
+  constituencies$last_election_2_result[i] <- response[[2]]$result
+  constituencies$last_election_2_winning_party[i] <- response[[2]]$winningParty$id
+  constituencies$last_election_2_election_ID[i] = response[[2]]$electionId
+  constituencies$last_election_2_electionDate[i] = response[[2]]$electionDate
+  constituencies$last_election_2_isGeneralElection[i] = response[[2]]$isGeneralElection
 
-  constituencies$GE15_electorate[i] <- response[[3]]$electorate
-  constituencies$GE15_turnout[i] <- response[[3]]$turnout  
-  constituencies$GE15_majority[i] <- response[[3]]$majority
-  constituencies$GE15_result[i] <- response[[3]]$result
-  constituencies$GE15_winning_party[i] <- response[[3]]$winningParty$id
+  constituencies$last_election_3_electorate[i] <- response[[3]]$electorate
+  constituencies$last_election_3_turnout[i] <- response[[3]]$turnout  
+  constituencies$last_election_3_majority[i] <- response[[3]]$majority
+  constituencies$last_election_3_result[i] <- response[[3]]$result
+  constituencies$last_election_3_winning_party[i] <- response[[3]]$winningParty$id
+  constituencies$last_election_3_election_ID[i] = response[[3]]$electionId
+  constituencies$last_election_3_electionDate[i] = response[[3]]$electionDate
+  constituencies$last_election_3_isGeneralElection[i] = response[[3]]$isGeneralElection
 
-  constituencies$GE10_electorate[i] <- response[[4]]$electorate
-  constituencies$GE10_turnout[i] <- response[[4]]$turnout   
-  constituencies$GE10_majority[i] <- response[[4]]$majority
-  constituencies$GE10_result[i] <- response[[4]]$result
-  constituencies$GE10_winning_party[i] <- response[[4]]$winningParty$id
+  constituencies$last_election_4_electorate[i] <- response[[4]]$electorate
+  constituencies$last_election_4_turnout[i] <- response[[4]]$turnout   
+  constituencies$last_election_4_majority[i] <- response[[4]]$majority
+  constituencies$last_election_4_result[i] <- response[[4]]$result
+  constituencies$last_election_4_winning_party[i] <- response[[4]]$winningParty$id
+  constituencies$last_election_4_election_ID[i] = response[[4]]$electionId
+  constituencies$last_election_4_electionDate[i] = response[[4]]$electionDate
+  constituencies$last_election_4_isGeneralElection[i] = response[[4]]$isGeneralElection
 
   Sys.sleep(0.5)
   setTxtProgressBar(pb, i)
 }
 
 
+print(paste0(Sys.time(), " | ELECTIONS done."))
+cat("\n")
+
+saveRDS(constituencies, "data/constituencies_raw.Rds")
 
 
-GE19_electorate <- response[[1]]$electorate
+print(paste0(Sys.time(), " | All done! :)"))
+cat("\n")
 
-    GE19_majority = NA, 
-    GE19_result = NA, 
-    GE19_winning_party = NA,
-
-GE_17 <- response[2]
-GE_15 <- response[3]
-GE_10 <- response[3]
+#### UK HoC library constituency dashboard
