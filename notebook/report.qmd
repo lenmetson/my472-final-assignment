@@ -445,15 +445,21 @@ dbWriteTable(db, "members", members_df, overwrite = TRUE)
 ```
 
 
-Finally, we want to collect more information on the characteristics of MPs and their constituencies. 
+```{r}
+MPs <- dbGetQuery(db,
+  "
+  SELECT * 
+  FROM members 
+  ")
+```
 
-- MP characteristics
-  - On a date `/Members/4498?detailsForDate=2017-11-17` - can be looped by questions 
+
+
+
+
 - Constituency characteristics
   - Previous electoral results 
   - Socio-demographic features of the constituency
-- What to add? 
-  - Education? from wikipedia? 
 
 
 
@@ -468,7 +474,7 @@ Constituency info
 
 ```{r}
 
-db_table_check(db, "oral_questions")
+db_table_check(db, "members")
 
 ```
 
