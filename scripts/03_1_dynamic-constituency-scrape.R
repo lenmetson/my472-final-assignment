@@ -62,6 +62,7 @@ selector_list$uc_claimants <- "/html/body/div[1]/report-embed/div/div[1]/div/div
 
 selector_list$house_prices <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[39]/transform/div/div[3]/div/div/visual-modern/div/div/div/div[1]/div/div/div/div/div[2]/div[1]"
 
+#constituency_name = cons$cons_name[14]
 
 constituency_dash_scraper <- function(constituency_name){
 
@@ -141,12 +142,14 @@ constituency_dash_scraper <- function(constituency_name){
     uc_claimants_text <- NA
   })
 
-  tryCatch({
+  house_prices_text <- try({
     house_prices <- driver$findElement(using = "xpath", value = selector_list$house_prices)
-    house_prices_text <- house_prices$getElementText()[[1]]
-  }, error = function(e) {
+    house_prices$getElementText()[[1]]
+  }, silent = TRUE)
+
+  if (inherits(house_prices_text, "try-error")) {
     house_prices_text <- NA
-  })
+  }
 
   Sys.sleep(1)
 
@@ -162,7 +165,7 @@ constituency_dash_scraper <- function(constituency_name){
 
 
 
-for (i in 13:length(cons$constituency_id)) {
+for (i in 14:15) { #length(cons$constituency_id)
 
   results <- constituency_dash_scraper(cons$cons_name[i])
 
