@@ -12,7 +12,8 @@ load_packages(c(
     "here",
     "DBI",
     "RSQLite",
-    "httr"
+    "httr",
+    "RSelenium"
     ))
 
 
@@ -20,6 +21,7 @@ cons <- readRDS("data/constituencies_raw_basic.Rds")
 
 cons <- cons %>%
   select(constituency_id, cons_name) %>%
+  unique() %>%
   mutate(
     region_nation_hoclib23 = NA,
     population_hoclib23 = NA,
@@ -34,7 +36,6 @@ cons <- cons %>%
 
 
 rD <- rsDriver(browser=c("firefox"), verbose = F, port = netstat::free_port(random = TRUE), chromever = NULL) 
-
 driver <- rD$client
 
 selector_list <- list()
@@ -129,7 +130,6 @@ constituency_dash_scraper <- function(constituency_name){
 
 }
 
-pb <- txtProgressBar(min = 0, max = length(nrow(cons)), style = 3)
 
 for (i in seq_along(cons$constituency_id)) {
 
@@ -149,20 +149,45 @@ for (i in seq_along(cons$constituency_id)) {
     cons$median_house_price_hoclib23[i] <- results[[8]] 
 
   Sys.sleep(2)
-  setTxtProgressBar(pb, i)
+
+  print(paste0(i, " of ", nrow(cons), " done."))
+
 }
 
 driver$close()
 rD$server$stop()
 system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
 
+saveRDS(cons, "data/hoc_library_scrape_raw.Rds")
 
-# Clean data 
+# # Clean data 
 
-# pop numeric 
-# area numeric
-# age perc
-# uc numeric
-#house price numeric
+# cons2 <- cons
+# cons <- cons2
 
-# Write out ot db 
+# # pop numeric 
+# cons$population_hoclib23 <- cons$population_hoclib23 %>%
+#   str_remove_all(",") %>%
+#   as.numeric()
+
+# # area numeric
+
+# cons$area_hoclib23 <- cons$area_hoclib23 %>%
+#   str_extract(".*(?=\\s*sq\\.\\s*km)") %>%
+#   str_remove_all(",") %>%
+#   as.numeric()
+
+
+# # age perc
+
+# cons$age_0_29_hoclib23 <- cons$age_0_29_hoclib23 %>%
+#   str_extract_all("[0-9]") %>%
+#   as.numeric()
+
+# cons <- cons %>%
+#  mutate(age_0_29_hoclib23 = age_0_29_hoclib23/100)
+
+# # uc numeric
+# #house price numeric
+
+# # Write out ot db 

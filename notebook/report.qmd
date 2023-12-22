@@ -32,7 +32,8 @@ load_packages(c(
     "here",
     "DBI",
     "RSQLite",
-    "httr"
+    "httr",
+    "RSelenium"
     ))
 
 ```
