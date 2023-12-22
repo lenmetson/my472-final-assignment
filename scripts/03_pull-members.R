@@ -89,7 +89,11 @@ members <- pull_members("https://members-api.parliament.uk/api/Members", questio
 
 saveRDS(members, "data/members_raw.Rds")
 
+members <- readRDS("data/members_raw.Rds")
+
 members <-  lapply(members, function(lst) {lapply(lst, replace_null_with_na)})
+
+pb <- txtProgressBar(min = 0, max = length(members), style = 3)
 
 for (i in seq_along(members)) {
 
@@ -108,6 +112,9 @@ for (i in seq_along(members)) {
 
     members_df <- rbind(members_df, members_df_new)
   }
+  
+  setTxtProgressBar(pb, i)
+  
 }
 
 members_df <- members_df %>%
