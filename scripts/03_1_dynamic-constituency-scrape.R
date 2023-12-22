@@ -140,3 +140,14 @@ for (i in seq_along(cons$constituency_id)) {
 driver$close()
 rD$server$stop()
 system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
+
+
+# Clean data 
+
+# pop numeric 
+# area numeric
+# age perc
+# uc numeric
+#house price numeric
+
+# Write out ot db 
