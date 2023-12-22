@@ -1,7 +1,22 @@
-library(RSelenium)
-library(tidyverse)
+# Define function to install or load packages
+load_packages <- function(x) {
+  y <- x %in% rownames(installed.packages())
+  if(any(!y)) install.packages(x[!y])
+  invisible(lapply(x, library, character.only=T))
+  rm(x, y)
+}
 
-cons <- readRDS("data/test_con_df.Rds")
+# Load required packagess
+load_packages(c(
+    "tidyverse",
+    "here",
+    "DBI",
+    "RSQLite",
+    "httr"
+    ))
+
+
+cons <- readRDS("data/constituencies_raw_basic.Rds")
 
 cons <- cons %>%
   select(constituency_id, cons_name) %>%

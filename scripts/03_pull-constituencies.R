@@ -118,6 +118,8 @@ for(i in seq_along(constituencies$constituency_id)) {
 }
 
 
+saveRDS(constituencies, "data/constituencies_raw_basic.Rds")
+
 print(paste0(Sys.time(), " | BASIC INFO done."))
 cat("\n")
 
@@ -154,6 +156,7 @@ for(i in seq_along(constituencies$constituency_id)) {
   setTxtProgressBar(pb, i)
 }
 
+saveRDS(constituencies, "data/constituencies_raw_shapefiles.Rds")
 
 print(paste0(Sys.time(), " | SHAPE FILES done."))
 cat("\n")
