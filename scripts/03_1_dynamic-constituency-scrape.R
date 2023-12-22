@@ -34,7 +34,6 @@ cons <- cons %>%
   )
 
 rD <- rsDriver(browser=c("firefox"), verbose = F, port = netstat::free_port(random = TRUE), chromever = NULL) 
-
 driver <- rD$client
 
 selector_list <- list()
@@ -63,60 +62,121 @@ selector_list$uc_claimants <- "/html/body/div[1]/report-embed/div/div[1]/div/div
 selector_list$house_prices <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[39]/transform/div/div[3]/div/div/visual-modern/div/div/div/div[1]/div/div/div/div/div[2]/div[1]"
 
 
-consituency_dash_scraper <- function(constituency_name){
+#constituency_name <- cons$cons_name[16]
+#wait_base = 1
 
-  driver$navigate("https://commonslibrary.parliament.uk/constituency-dashboard/")
-
-  Sys.sleep(5)
-
-  iframe <- driver$findElement(using = "xpath", value = "//iframe[@title='Constituency dashboard']")
-  driver$switchToFrame(iframe)
-
-  Sys.sleep(3)
+constituency_dash_scraper <- function(constituency_name, wait_base = 1){
+  Sys.sleep(wait_base * 4)
   search_dropdown <- driver$findElement(using = "xpath", value = selector_list$search_dropdown)
   search_dropdown$clickElement()
 
-  Sys.sleep(3)
+  Sys.sleep(wait_base * 2)
   search_box <- driver$findElement(using = "xpath", value = selector_list$search_box)
   #search_box$clickElement()
   search_box$clearElement()
-  Sys.sleep(1)
   search_box$sendKeysToElement(list(constituency_name))
 
-  Sys.sleep(3)
+  Sys.sleep(wait_base * 4)
   first_result <- driver$findElement(using = "xpath", value = selector_list$search_result)
   first_result$clickElement()
 
-
   # Extract text 
+  
+  # Set defaults as NA
 
-  Sys.sleep(4)
+  region_nation_text <- NA
+  population_text <- NA
+  area_text <- NA
+  age_0_29_text <- NA
+  age_30_64_text <- NA
+  age_65_plus_text <- NA
+  uc_claimants_text <- NA
+  house_prices_text <- NA
 
-  region_nation <- driver$findElement(using = "xpath", value = selector_list$region_nation)
-  region_nation_text <- region_nation$getElementText()[[1]]
+  Sys.sleep(wait_base * 4)
 
-  population <- driver$findElement(using = "xpath", value = selector_list$population)
-  population_text <- population$getElementText()[[1]]
+  # Region or nation
+  tryCatch({
+  suppressMessages({ 
+    region_nation <- driver$findElement(using = "xpath", value = selector_list$region_nation)
+    region_nation_text <- region_nation$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for REGION/NATION at iteration ", i))
+  })
 
-  area <- driver$findElement(using = "xpath", value = selector_list$area)
-  area_text <- area$getElementText()[[1]]
 
-  age_0_29 <- driver$findElement(using = "xpath", value = selector_list$age_0_29)
-  age_0_29_text <- age_0_29$getElementText()[[1]]
+  # Population 
+  tryCatch({
+  suppressMessages({ 
+    population <- driver$findElement(using = "xpath", value = selector_list$population)
+    population_text <- population$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for POPULATION at iteration ", i))
+  })
 
-  age_30_64 <- driver$findElement(using = "xpath", value = selector_list$age_30_64)
-  age_30_64_text <- age_30_64$getElementText()[[1]] 
+  # Area in sq km
+  tryCatch({
+  suppressMessages({ 
+    area <- driver$findElement(using = "xpath", value = selector_list$area)
+    area_text <- area$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for AREA at iteration ", i))
+  })
 
-  age_65_plus <- driver$findElement(using = "xpath", value = selector_list$age_65_plus)
-  age_65_plus_text <- age_65_plus$getElementText()[[1]]
+  # Age composition 
+  tryCatch({
+  suppressMessages({
+    age_0_29 <- driver$findElement(using = "xpath", value = selector_list$age_0_29)
+    age_0_29_text <- age_0_29$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for AGE 0-29 PLUS at iteration ", i))
+  })
 
-  uc_claimants <- driver$findElement(using = "xpath", value = selector_list$uc_claimants)
-  uc_claimants_text <- uc_claimants$getElementText()[[1]]
+  tryCatch({
+  suppressMessages({
+    age_30_64 <- driver$findElement(using = "xpath", value = selector_list$age_30_64)
+    age_30_64_text <- age_30_64$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for AGE 30-64 PLUS at iteration ", i))
+  })
 
-  house_prices <- driver$findElement(using = "xpath", value = selector_list$house_prices)
-  house_prices_text <- house_prices$getElementText()[[1]]
+  tryCatch({
+  suppressMessages({
+    age_65_plus <- driver$findElement(using = "xpath", value = selector_list$age_65_plus)
+    age_65_plus_text <- age_65_plus$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for AGE 64 PLUS at iteration ", i))
+  })
 
-  Sys.sleep(1)
+  # Universal credit claimants 
+  tryCatch({
+  suppressMessages({
+    uc_claimants <- driver$findElement(using = "xpath", value = selector_list$uc_claimants)
+    uc_claimants_text <- uc_claimants$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for UC CLAIMANTS at iteration ", i))
+  })
+
+  # House price
+
+  tryCatch({
+    suppressMessages({
+      house_prices <- driver$findElement(using = "xpath", value = selector_list$house_prices)
+      house_prices_text <- house_prices$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for HOUSE PRICE at iteration ", i))
+  })
+
+
+  Sys.sleep(wait_base * 1)
 
   results = list(
     region_nation_text, 
@@ -128,11 +188,20 @@ consituency_dash_scraper <- function(constituency_name){
 
 }
 
+# Navigate to home page outside of the loop
+driver$deleteAllCookies()
+driver$navigate("https://commonslibrary.parliament.uk/constituency-dashboard/")
 
+Sys.sleep(1)
 
-for (i in 14:16) { #length(cons$constituency_id)
+# Identify and switch to sub-page 
+iframe <- driver$findElement(using = "xpath", value = "//iframe[@title='Constituency dashboard']")
+driver$switchToFrame(iframe)
 
-  results <- constituency_dash_scraper(cons$cons_name[i])
+start_from = 14 # Set the number to start from 
+for (i in start_from:15) { #length(cons$constituency_id)
+
+  results <- constituency_dash_scraper(cons$cons_name[i], wait_base = 1)
 
     cons$region_nation_hoclib23[i] <- results[[1]]
 
@@ -148,7 +217,7 @@ for (i in 14:16) { #length(cons$constituency_id)
     cons$median_house_price_hoclib23[i] <- results[[8]]
 
  # Cache results collected so far
-  if(i == 1){
+  if(i == start_from){
     saveRDS(cons, paste0("data/cache_cons_at", i, ".Rds"))
   } else {
      saveRDS(cons, paste0("data/cache_cons_at", i, ".Rds"))
@@ -156,7 +225,7 @@ for (i in 14:16) { #length(cons$constituency_id)
   }
   
 
-  Sys.sleep(2)
+  Sys.sleep(1)
 
   print(paste0(i, " of ", nrow(cons), " done."))
 
