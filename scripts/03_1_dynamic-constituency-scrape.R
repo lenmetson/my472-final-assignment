@@ -198,8 +198,8 @@ Sys.sleep(1)
 iframe <- driver$findElement(using = "xpath", value = "//iframe[@title='Constituency dashboard']")
 driver$switchToFrame(iframe)
 
-start_from = 14 # Set the number to start from 
-for (i in start_from:15) { #length(cons$constituency_id)
+start_from = 390 # Set the number to start from 
+for (i in start_from:length(cons$constituency_id)) {
 
   results <- constituency_dash_scraper(cons$cons_name[i], wait_base = 1)
 
@@ -237,6 +237,8 @@ system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
 
 saveRDS(cons, "data/hoc_library_scrape_raw.Rds")
 
+
+#cache <- readRDS("data/cache_cons_at390.Rds")
 # # Clean data 
 
 # cons2 <- cons
