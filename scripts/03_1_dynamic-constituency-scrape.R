@@ -53,7 +53,7 @@ constituency_dash_scraper <- function(constituency_name){
 
   driver$navigate("https://commonslibrary.parliament.uk/constituency-dashboard/")
 
-  Sys.sleep(4)
+  Sys.sleep(5)
 
   iframe <- driver$findElement(using = "xpath", value = "//iframe[@title='Constituency dashboard']")
   driver$switchToFrame(iframe)
@@ -76,7 +76,7 @@ constituency_dash_scraper <- function(constituency_name){
 
   # Extract text 
 
-  Sys.sleep(1)
+  Sys.sleep(2)
 
   region_nation <- driver$findElement(using = "xpath", value = selector_list$region_nation)
   region_nation_text <- region_nation$getElementText()[[1]]
@@ -115,8 +115,6 @@ constituency_dash_scraper <- function(constituency_name){
 }
 
 pb <- txtProgressBar(min = 0, max = length(nrow(cons)), style = 3)
-
-cons <- cons %>% sample_n(1)
 
 for (i in seq_along(cons$constituency_id)) {
 
