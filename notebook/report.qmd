@@ -462,7 +462,6 @@ MPs <- dbGetQuery(db,
   - Socio-demographic features of the constituency
 
 
-
 Constituency info
 - We will get the cosntituency ID from the members pull. We can pull:
   - Election results for each constituency over different elections 
@@ -471,13 +470,17 @@ Constituency info
   - Basic demographic information 
   - Economic indicators 
   - Health indicators 
-
 ```{r}
 
 db_table_check(db, "members")
 
 ```
 
+
+
+I obtained more constituency information from the UK House of Commons Library Constituecy dashboard. This does not have an API, and contains dynamic elements, so I use selinum to scrape it. 
+
+This process was somewhat complicated by the fact that the dashboard is contained within an "iframe". This allows a different html tree to be embedded within the main html of the webpage meaning any CSS paths do not point to the actual path of the webpage. Do do this, we need to identify the iframe and use `switchToFrame()` to identify elements on the dashboard. 
 
 
 ```{r, eval = TRUE}
