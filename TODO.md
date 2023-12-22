@@ -1,0 +1,5 @@
+- Add more information about MPs such as:
+  - Positions held (minister, shadow minister, etc)
+  - Interests registered 
+  - Votes 
+  - Biographical (school, etc)
