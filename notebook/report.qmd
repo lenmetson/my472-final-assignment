@@ -1014,19 +1014,23 @@ DIAGRAM OF FINAL RELATIONAL DATABASE
 question_text <- dbGetQuery(
   db, 
   "
-  SELECT 
-    question_short_text
-
+  SELECT question_id, question_short_text
   FROM oral_questions
-
-  WHERE oral_questions.question_tabled_when >= '2023-01-01T00:00:00'
-
   "
 ) 
+
+# Measure 
+
+question_text$is_econ <- 0
+question_text$is_soc <- 0
+
+question_text <- question_text %>% select(-question_short_text)
+
+dbWriteTable(db, "question_topics", question_text, overwrite=TRUE)
+
 ```
 
 ```{r}
-# Need to work out how to add in data valid 
 analysis_df <- dbGetQuery(
   db, 
   "
@@ -1086,55 +1090,43 @@ analysis_df <- dbGetQuery(
       AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
   JOIN constituencies 
     ON members.member_latest_constituency = constituencies.constituency_id
-
-  WHERE oral_questions.question_tabled_when >= '2023-01-01T00:00:00'
-
   "
 ) 
 ```
 
-last_election_1_electorate   
-constituencies.last_election_1_turnout          
-last_election_1_majority     
-constituencies.last_election_1_result           
-last_election_1_winning_party
-constituencies.last_election_1_election_ID      
-last_election_1_electionDate 
-constituencies.last_election_1_isGeneralElection
-last_election_2_electorate   
-constituencies.last_election_2_turnout          
-last_election_2_majority     
-constituencies.last_election_2_result           
-last_election_2_winning_party
-constituencies.last_election_2_election_ID      
-last_election_2_electionDate 
-constituencies.last_election_2_isGeneralElection
-last_election_3_electorate   
-constituencies.last_election_3_turnout          
-last_election_3_majority     
-constituencies.last_election_3_result           
-last_election_3_winning_party
-constituencies.last_election_3_election_ID      
-last_election_3_electionDate 
-constituencies.last_election_3_isGeneralElection
-last_election_4_electorate   
-constituencies.last_election_4_turnout          
-last_election_4_majority     
-constituencies.last_election_4_result           
-last_election_4_winning_party
-constituencies.last_election_4_election_ID      
-last_election_4_electionDate 
-constituencies.last_election_4_isGeneralElection
-shapefile                    
-constituencies.region_nation_hoclib23           
-population_hoclib23          
-constituencies.area_hoclib23                   
-age_0_29_hoclib23            
-constituencies.age_30_64_hoclib23               
-age_65_plus_hoclib23         
-constituencies.uc_claimants_hoclib23            
-median_house_price_hoclib23 
+```{r}
+analysis_df_econ <- dbGetQuery(
+  db, 
+  "
+  SELECT 
+    question_topics.is_econ,
 
+    members.member_latest_party,
+    members.member_gender,
+    constituencies.last_election_1_electorate,   
+    constituencies.last_election_1_turnout,         
+    constituencies.last_election_1_majority,               
+    constituencies.last_election_1_isGeneralElection,              
+    constituencies.region_nation_hoclib23,           
+    constituencies.population_hoclib23,          
+    constituencies.area_hoclib23,                   
+    constituencies.age_0_29_hoclib23,            
+    constituencies.age_30_64_hoclib23,               
+    constituencies.age_65_plus_hoclib23,         
+    constituencies.uc_claimants_hoclib23,            
+    constituencies.median_house_price_hoclib23 
+
+  FROM oral_questions
+  JOIN question_topics
+    ON oral_questions.question_id = question_topics.question_id
+  JOIN members 
+    ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
+      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
+  JOIN constituencies 
+    ON members.member_latest_constituency = constituencies.constituency_id
+  "
+) 
+```
 
 - Measuring question topic 
 
