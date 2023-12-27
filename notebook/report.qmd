@@ -447,16 +447,236 @@ dbWriteTable(db, "members", members_df, overwrite = TRUE)
 
 
 ```{r}
+
+db_table_check(db, "members")
+
+```
+
+```{r}
 MPs <- dbGetQuery(db,
   "
   SELECT * 
   FROM members 
   ")
+
+constituencies <- MPs$member_latest_constituency %>% 
+  unique()
+
+constituencies <- 
+  data.frame(
+    constituency_id = constituencies
+  ) %>%
+  mutate(
+
+    cons_name = NA, 
+    cons_start_date = NA, 
+    cons_end_date = NA,
+
+    last_election_1_electorate = NA,
+    last_election_1_turnout = NA,
+    last_election_1_majority = NA, 
+    last_election_1_result = NA, 
+    last_election_1_winning_party = NA,
+    last_election_1_election_ID = NA,
+    last_election_1_electionDate = NA,
+    last_election_1_isGeneralElection = NA,
+
+    last_election_2_electorate = NA,
+    last_election_2_turnout = NA,
+    last_election_2_majority = NA, 
+    last_election_2_result = NA, 
+    last_election_2_winning_party = NA,
+    last_election_2_election_ID = NA,
+    last_election_2_electionDate = NA,
+    last_election_2_isGeneralElection = NA,
+
+    last_election_3_electorate = NA,
+    last_election_3_turnout = NA,
+    last_election_3_majority = NA, 
+    last_election_3_result = NA, 
+    last_election_3_winning_party = NA,
+    last_election_3_election_ID = NA,
+    last_election_3_electionDate = NA,
+    last_election_3_isGeneralElection = NA,
+
+    last_election_4_electorate = NA,
+    last_election_4_turnout = NA,
+    last_election_4_majority = NA, 
+    last_election_4_result = NA, 
+    last_election_4_winning_party = NA,
+    last_election_4_election_ID = NA,
+    last_election_4_electionDate = NA,
+    last_election_4_isGeneralElection = NA,
+
+    shapefile = NA
+    )
+
+
+### Basic details 
+
+pull_const_info <- function(cons_id) {
+  url <- paste0(
+    "https://members-api.parliament.uk/api/Location/Constituency/",
+    cons_id)
+
+    basic_info <- httr::GET(url) |>
+    httr::content("parsed")
+
+    return(basic_info)
+}
+
+pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
+
+
+print(paste0(Sys.time(), " | BASIC INFO ..."))
+cat("\n")
+
+for(i in seq_along(constituencies$constituency_id)) {
+  response <- pull_const_info(constituencies$constituency_id[i])
+  response <- response[[1]]
+
+  constituencies$cons_name[i] <- response$name
+  constituencies$cons_start_date[i] <- response$startDate
+  constituencies$cons_end_date[i] <- ifelse(is.null(response$endDate), NA, response$endDate)
+
+  Sys.sleep(0.5)
+  setTxtProgressBar(pb, i)
+}
+
+
+#saveRDS(constituencies, "data/constituencies_raw_basic.Rds")
+
+print(paste0(Sys.time(), " | BASIC INFO done."))
+cat("\n")
+
+### Shape file
+
+# Define function
+
+get_cons_shapefile <- function(cons_id) {
+  url <- paste0(
+    "https://members-api.parliament.uk/api/Location/Constituency/",
+    cons_id,
+    "/Geometry")
+
+  shapefile <- httr::GET(url) |>
+    httr::content("parsed")
+
+  return(shapefile)
+}
+
+# Execute function
+pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
+
+
+print(paste0(Sys.time(), " | SHAPE FILES ..."))
+cat("\n")
+
+for(i in seq_along(constituencies$constituency_id)) {
+  response <- get_cons_shapefile(constituencies$constituency_id[i])
+  response <- response[[1]]
+
+  constituencies$shapefile[i] <- response
+
+  Sys.sleep(0.5)
+  setTxtProgressBar(pb, i)
+}
+
+saveRDS(constituencies, "data/constituencies_raw_shapefiles.Rds")
+
+print(paste0(Sys.time(), " | SHAPE FILES done."))
+cat("\n")
+
+### Election results
+
+
+get_cons_election_results <- function(cons_id) {
+  url <- paste0(
+    "https://members-api.parliament.uk/api/Location/Constituency/",
+    cons_id,
+    "/ElectionResults")
+
+  results <- httr::GET(url) |>
+    httr::content("parsed")
+
+  return(results)
+}
+
+
+print(paste0(Sys.time(), " | ELECTIONS ..."))
+cat("\n")
+
+for (i in seq_along(constituencies$constituency_id)) {
+  response <- get_cons_election_results(constituencies$constituency_id[i])
+  response <- response[[1]]
+
+  response <- lapply(response, function(lst) {lapply(lst, replace_null_with_na)})
+
+  constituencies$last_election_1_electorate[i] <- response[[1]]$electorate
+  constituencies$last_election_1_turnout[i] <- response[[1]]$turnout  
+  constituencies$last_election_1_majority[i] <- response[[1]]$majority
+  constituencies$last_election_1_result[i] <- response[[1]]$result
+  # If no winner recorded, skip this and assign NA
+  if(length(response[[1]]$winningParty) > 1) { # When there is content in the winning party sublist, the length will be greater than 1
+    constituencies$last_election_1_winning_party[i] <- response[[1]]$winningParty$id
+  } else {
+     constituencies$last_election_1_winning_party[i] <- NA
+  }
+  constituencies$last_election_1_election_ID[i] = response[[1]]$electionId
+  constituencies$last_election_1_electionDate[i] = response[[1]]$electionDate
+  constituencies$last_election_1_isGeneralElection[i] = response[[1]]$isGeneralElection
+
+  constituencies$last_election_2_electorate[i] <- response[[2]]$electorate
+  constituencies$last_election_2_turnout[i] <- response[[2]]$turnout 
+  constituencies$last_election_2_majority[i] <- response[[2]]$majority
+  constituencies$last_election_2_result[i] <- response[[2]]$result
+  # If no winner recorded, skip this and assign NA
+  if(length(response[[2]]$winningParty) > 1) {
+    constituencies$last_election_2_winning_party[i] <- response[[2]]$winningParty$id
+  } else {
+     constituencies$last_election_2_winning_party[i] <- NA
+  }
+  constituencies$last_election_2_election_ID[i] = response[[2]]$electionId
+  constituencies$last_election_2_electionDate[i] = response[[2]]$electionDate
+  constituencies$last_election_2_isGeneralElection[i] = response[[2]]$isGeneralElection
+
+  constituencies$last_election_3_electorate[i] <- response[[3]]$electorate
+  constituencies$last_election_3_turnout[i] <- response[[3]]$turnout  
+  constituencies$last_election_3_majority[i] <- response[[3]]$majority
+  constituencies$last_election_3_result[i] <- response[[3]]$result
+  # If no winner recorded, skip this and assign NA
+  if(length(response[[3]]$winningParty) > 1) {
+    constituencies$last_election_3_winning_party[i] <- response[[3]]$winningParty$id
+  } else {
+     constituencies$last_election_3_winning_party[i] <- NA
+  }
+  constituencies$last_election_3_election_ID[i] = response[[3]]$electionId
+  constituencies$last_election_3_electionDate[i] = response[[3]]$electionDate
+  constituencies$last_election_3_isGeneralElection[i] = response[[3]]$isGeneralElection
+
+  constituencies$last_election_4_electorate[i] <- response[[4]]$electorate
+  constituencies$last_election_4_turnout[i] <- response[[4]]$turnout   
+  constituencies$last_election_4_majority[i] <- response[[4]]$majority
+  constituencies$last_election_4_result[i] <- response[[4]]$result
+  # If no winner recorded, skip this and assign NA
+  if(length(response[[4]]$winningParty) > 1) {
+    constituencies$last_election_4_winning_party[i] <- response[[4]]$winningParty$id
+  } else {
+     constituencies$last_election_4_winning_party[i] <- NA
+  }
+  constituencies$last_election_4_election_ID[i] = response[[4]]$electionId
+  constituencies$last_election_4_electionDate[i] = response[[4]]$electionDate
+  constituencies$last_election_4_isGeneralElection[i] = response[[4]]$isGeneralElection
+
+  Sys.sleep(0.5)
+  
+  print(paste0(i, " of ", nrow(constituencies), " done."))
+}
+
+saveRDS(constituencies, "data/constituencies_raw.Rds")
+
+
 ```
-
-
-
-
 
 - Constituency characteristics
   - Previous electoral results 
@@ -471,11 +691,7 @@ Constituency info
   - Basic demographic information 
   - Economic indicators 
   - Health indicators 
-```{r}
 
-db_table_check(db, "members")
-
-```
 
 
 
@@ -485,6 +701,305 @@ This process was somewhat complicated by the fact that the dashboard is containe
 
 HOUSEPRICE INFO ONLY IN ENG AND WALES, that's why so many NAs
 
+```{r}
+
+cons <- readRDS("data/constituencies_raw.Rds") 
+
+cons <- cons %>%
+  select(constituency_id, cons_name) %>%
+  unique() %>%
+  mutate(
+    region_nation_hoclib23 = NA,
+    population_hoclib23 = NA,
+    area_hoclib23 = NA,
+    age_0_29_hoclib23 = NA,
+    age_30_64_hoclib23 = NA,
+    age_65_plus_hoclib23 = NA, 
+    uc_claimants_hoclib23 = NA, 
+    median_house_price_hoclib23 = NA
+  )
+
+rD <- rsDriver(browser=c("firefox"), verbose = F, port = netstat::free_port(random = TRUE), chromever = NULL) 
+driver <- rD$client
+
+selector_list <- list()
+
+selector_list$search_dropdown <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[1]/transform/div/div[3]/div/div/visual-modern/div/div/div[2]/div/i"
+
+selector_list$search_box <- "/html/body/div[7]/div[1]/div/div[1]/input"
+
+
+selector_list$search_result <- "/html/body/div[7]/div[1]/div/div[2]/div/div[1]/div/div/div[1]/div/span"
+
+selector_list$region_nation <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[2]/transform/div/div[3]/div/div/visual-modern/div/div/div/div[1]/div/div/div/div/div"
+
+selector_list$population <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[3]/transform/div/div[3]/div/div/visual-modern/div/div/div/p[2]/span"
+
+selector_list$area <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[5]/transform/div/div[3]/div/div/visual-modern/div/div/div/p[2]/span"
+
+selector_list$age_0_29 <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[11]/transform/div/div[3]/div/div/visual-modern/div/div/div/div[1]/div/div/div/div/div/div[1]"
+
+selector_list$age_30_64 <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[13]/transform/div/div[3]/div/div/visual-modern/div/div/div/div[1]/div/div/div/div/div/div[1]"
+
+selector_list$age_65_plus <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[15]/transform/div/div[3]/div/div/visual-modern/div/div/div/div[1]/div/div/div/div/div/div[1]"
+
+selector_list$uc_claimants <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[28]/transform/div/div[3]/div/div/visual-modern/div/div/div/div[1]/div/div/div/div/div[1]/div[1]"
+
+selector_list$house_prices <- "/html/body/div[1]/report-embed/div/div[1]/div/div/div/div/exploration-container/div/div/docking-container/div/div/div/div/exploration-host/div/div/exploration/div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[39]/transform/div/div[3]/div/div/visual-modern/div/div/div/div[1]/div/div/div/div/div[2]/div[1]"
+
+
+#constituency_name <- cons$cons_name[16]
+#wait_base = 1
+
+constituency_dash_scraper <- function(constituency_name, wait_base = 1){
+  #Sys.sleep(wait_base * 4)
+  search_dropdown <- driver$findElement(using = "xpath", value = selector_list$search_dropdown)
+  search_dropdown$clickElement()
+
+  Sys.sleep(wait_base * 2)
+  search_box <- driver$findElement(using = "xpath", value = selector_list$search_box)
+  #search_box$clickElement()
+  search_box$clearElement()
+  search_box$sendKeysToElement(list(constituency_name))
+
+  Sys.sleep(wait_base * 4)
+  first_result <- driver$findElement(using = "xpath", value = selector_list$search_result)
+  first_result$clickElement()
+
+  # Extract text 
+  
+  # Set defaults as NA
+
+  region_nation_text <- NA
+  population_text <- NA
+  area_text <- NA
+  age_0_29_text <- NA
+  age_30_64_text <- NA
+  age_65_plus_text <- NA
+  uc_claimants_text <- NA
+  house_prices_text <- NA
+
+  Sys.sleep(wait_base * 4)
+
+  # Region or nation
+  tryCatch({
+  suppressMessages({ 
+    region_nation <- driver$findElement(using = "xpath", value = selector_list$region_nation)
+    region_nation_text <- region_nation$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for REGION/NATION at iteration ", i))
+  })
+
+
+  # Population 
+  tryCatch({
+  suppressMessages({ 
+    population <- driver$findElement(using = "xpath", value = selector_list$population)
+    population_text <- population$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for POPULATION at iteration ", i))
+  })
+
+  # Area in sq km
+  tryCatch({
+  suppressMessages({ 
+    area <- driver$findElement(using = "xpath", value = selector_list$area)
+    area_text <- area$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for AREA at iteration ", i))
+  })
+
+  # Age composition 
+  tryCatch({
+  suppressMessages({
+    age_0_29 <- driver$findElement(using = "xpath", value = selector_list$age_0_29)
+    age_0_29_text <- age_0_29$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for AGE 0-29 PLUS at iteration ", i))
+  })
+
+  tryCatch({
+  suppressMessages({
+    age_30_64 <- driver$findElement(using = "xpath", value = selector_list$age_30_64)
+    age_30_64_text <- age_30_64$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for AGE 30-64 PLUS at iteration ", i))
+  })
+
+  tryCatch({
+  suppressMessages({
+    age_65_plus <- driver$findElement(using = "xpath", value = selector_list$age_65_plus)
+    age_65_plus_text <- age_65_plus$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for AGE 64 PLUS at iteration ", i))
+  })
+
+  # Universal credit claimants 
+  tryCatch({
+  suppressMessages({
+    uc_claimants <- driver$findElement(using = "xpath", value = selector_list$uc_claimants)
+    uc_claimants_text <- uc_claimants$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for UC CLAIMANTS at iteration ", i))
+  })
+
+  # House price
+
+  tryCatch({
+    suppressMessages({
+      house_prices <- driver$findElement(using = "xpath", value = selector_list$house_prices)
+      house_prices_text <- house_prices$getElementText()[[1]]
+    })
+  }, error = function(e) {
+    print(paste0("Log: NA assigned for HOUSE PRICE at iteration ", i))
+  })
+
+
+  results = list(
+    region_nation_text, 
+    population_text, area_text, 
+    age_0_29_text, age_30_64_text, age_65_plus_text,
+    uc_claimants_text, house_prices_text)
+
+  return(results)
+
+}
+
+# Navigate to home page outside of the loop
+driver$deleteAllCookies()
+driver$navigate("https://commonslibrary.parliament.uk/constituency-dashboard/")
+
+Sys.sleep(1)
+
+# Identify and switch to sub-page 
+iframe <- driver$findElement(using = "xpath", value = "//iframe[@title='Constituency dashboard']")
+driver$switchToFrame(iframe)
+Sys.sleep(4)
+
+start_from = 1 # Set the number to start from
+for (i in start_from:length(cons$constituency_id)) {
+
+  results <- constituency_dash_scraper(cons$cons_name[i], wait_base = 1)
+
+    cons$region_nation_hoclib23[i] <- results[[1]]
+
+    cons$population_hoclib23[i] <- results[[2]]
+
+    cons$area_hoclib23[i] <- results[[3]]
+
+    cons$age_0_29_hoclib23[i] <- results[[4]]
+    cons$age_30_64_hoclib23[i] <- results[[5]]
+    cons$age_65_plus_hoclib23[i] <- results[[6]]
+
+    cons$uc_claimants_hoclib23[i] <- results[[7]]
+    cons$median_house_price_hoclib23[i] <- results[[8]]
+
+ # Cache results collected so far
+  if(i == start_from){
+    saveRDS(cons, paste0("data/cache_cons_at", i, ".Rds"))
+  } else {
+     saveRDS(cons, paste0("data/cache_cons_at", i, ".Rds"))
+     file.remove(paste0("data/cache_cons_at", i-1, ".Rds")) # delete last cached object
+  }
+  
+
+  Sys.sleep(1)
+
+  print(paste0(i, " of ", nrow(cons), " done."))
+
+}
+
+driver$close()
+rD$server$stop()
+system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
+
+saveRDS(cons, "data/hoc_library_scrape_raw.Rds")
+
+```
+
+```{r}
+# Clean dashboard data
+
+cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
+
+# pop numeric 
+cons_hoc$population_hoclib23 <- cons_hoc$population_hoclib23 %>%
+  str_remove_all(",") %>%
+  as.numeric()
+
+# area numeric
+
+cons_hoc$area_hoclib23 <- cons_hoc$area_hoclib23 %>%
+  str_extract(".*(?=\\s*sq\\.\\s*km)") %>%
+  str_remove_all(",") %>%
+  as.numeric()
+
+
+# age perc
+
+cons_hoc$age_0_29_hoclib23 <- cons_hoc$age_0_29_hoclib23 %>%
+  str_remove_all("%") %>%
+  as.numeric()
+cons_hoc$age_0_29_hoclib23 <- cons_hoc$age_0_29_hoclib23/100 # Convert to proportion 
+
+cons_hoc$age_30_64_hoclib23 <- cons_hoc$age_30_64_hoclib23 %>%
+  str_remove_all("%") %>%
+  as.numeric()
+cons_hoc$age_30_64_hoclib23 <- cons_hoc$age_30_64_hoclib23/100 # Convert to proportion 
+
+cons_hoc$age_65_plus_hoclib23 <- cons_hoc$age_65_plus_hoclib23 %>%
+  str_remove_all("%") %>%
+  as.numeric()
+cons_hoc$age_65_plus_hoclib23 <- cons_hoc$age_65_plus_hoclib23/100 # Convert to proportion 
+
+# uc numeric
+
+cons_hoc$uc_claimants_hoclib23 <- cons_hoc$uc_claimants_hoclib23 %>%
+  str_remove_all(",") %>%
+  as.numeric()
+
+# house price numeric
+
+cons_hoc$median_house_price_hoclib23 <- cons_hoc$median_house_price_hoclib23 %>%
+  str_remove_all(",|£") %>%
+  as.numeric()
+
+```
+
+```{r}
+
+# read in data pulled from Parliament API 
+
+cons_api <- readRDS("data/constituencies_raw.Rds")
+
+# Merge 
+
+
+cons_hoc <- cons_hoc %>%
+  select(-cons_name)
+
+cons <- left_join(cons_api, cons_hoc, by = "constituency_id")
+
+
+# Write out to database 
+
+dbWriteTable(db, "constituencies", cons, overwrite = TRUE)
+```
+
+
+```{r}
+dbListTables(db)
+db_table_check(db, "oral_questions")
+db_table_check(db, "members")
+db_table_check(db, "constituencies")
+```
 
 ```{r, eval = TRUE}
 # Disconnect from local database
@@ -494,6 +1009,132 @@ DBI::dbDisconnect(db)
 DIAGRAM OF FINAL RELATIONAL DATABASE
 
 # Analysis 
+
+```{r}
+question_text <- dbGetQuery(
+  db, 
+  "
+  SELECT 
+    question_short_text
+
+  FROM oral_questions
+
+  WHERE oral_questions.question_tabled_when >= '2023-01-01T00:00:00'
+
+  "
+) 
+```
+
+```{r}
+# Need to work out how to add in data valid 
+analysis_df <- dbGetQuery(
+  db, 
+  "
+  SELECT 
+    oral_questions.question_short_text,
+    oral_questions.question_tabled_when,
+
+    members.member_name_display,
+    members.member_latest_party,
+    members.member_gender,
+    
+    constituencies.cons_name,
+    constituencies.last_election_1_electorate,   
+    constituencies.last_election_1_turnout,          
+    constituencies.last_election_1_majority,     
+    constituencies.last_election_1_result,           
+    constituencies.last_election_1_winning_party,
+    constituencies.last_election_1_election_ID,      
+    constituencies.last_election_1_electionDate, 
+    constituencies.last_election_1_isGeneralElection,
+    constituencies.last_election_2_electorate,   
+    constituencies.last_election_2_turnout,          
+    constituencies.last_election_2_majority,     
+    constituencies.last_election_2_result,           
+    constituencies.last_election_2_winning_party,
+    constituencies.last_election_2_election_ID,      
+    constituencies.last_election_2_electionDate, 
+    constituencies.last_election_2_isGeneralElection,
+    constituencies.last_election_3_electorate,   
+    constituencies.last_election_3_turnout,          
+    constituencies.last_election_3_majority,     
+    constituencies.last_election_3_result,           
+    constituencies.last_election_3_winning_party,
+    constituencies.last_election_3_election_ID,      
+    constituencies.last_election_3_electionDate, 
+    constituencies.last_election_3_isGeneralElection,
+    constituencies.last_election_4_electorate,   
+    constituencies.last_election_4_turnout,          
+    constituencies.last_election_4_majority,     
+    constituencies.last_election_4_result,           
+    constituencies.last_election_4_winning_party,
+    constituencies.last_election_4_election_ID,      
+    constituencies.last_election_4_electionDate, 
+    constituencies.last_election_4_isGeneralElection,                
+    constituencies.region_nation_hoclib23,           
+    constituencies.population_hoclib23,          
+    constituencies.area_hoclib23,                   
+    constituencies.age_0_29_hoclib23,            
+    constituencies.age_30_64_hoclib23,               
+    constituencies.age_65_plus_hoclib23,         
+    constituencies.uc_claimants_hoclib23,            
+    constituencies.median_house_price_hoclib23 
+
+  FROM oral_questions
+  JOIN members 
+    ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
+      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
+  JOIN constituencies 
+    ON members.member_latest_constituency = constituencies.constituency_id
+
+  WHERE oral_questions.question_tabled_when >= '2023-01-01T00:00:00'
+
+  "
+) 
+```
+
+last_election_1_electorate   
+constituencies.last_election_1_turnout          
+last_election_1_majority     
+constituencies.last_election_1_result           
+last_election_1_winning_party
+constituencies.last_election_1_election_ID      
+last_election_1_electionDate 
+constituencies.last_election_1_isGeneralElection
+last_election_2_electorate   
+constituencies.last_election_2_turnout          
+last_election_2_majority     
+constituencies.last_election_2_result           
+last_election_2_winning_party
+constituencies.last_election_2_election_ID      
+last_election_2_electionDate 
+constituencies.last_election_2_isGeneralElection
+last_election_3_electorate   
+constituencies.last_election_3_turnout          
+last_election_3_majority     
+constituencies.last_election_3_result           
+last_election_3_winning_party
+constituencies.last_election_3_election_ID      
+last_election_3_electionDate 
+constituencies.last_election_3_isGeneralElection
+last_election_4_electorate   
+constituencies.last_election_4_turnout          
+last_election_4_majority     
+constituencies.last_election_4_result           
+last_election_4_winning_party
+constituencies.last_election_4_election_ID      
+last_election_4_electionDate 
+constituencies.last_election_4_isGeneralElection
+shapefile                    
+constituencies.region_nation_hoclib23           
+population_hoclib23          
+constituencies.area_hoclib23                   
+age_0_29_hoclib23            
+constituencies.age_30_64_hoclib23               
+age_65_plus_hoclib23         
+constituencies.uc_claimants_hoclib23            
+median_house_price_hoclib23 
+
 
 - Measuring question topic 
 

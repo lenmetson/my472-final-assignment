@@ -234,41 +234,4 @@ driver$close()
 rD$server$stop()
 system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
 
-# Filter out any duplicates and merge to one file
-
-
 saveRDS(cons, "data/hoc_library_scrape_raw.Rds")
-
-
-#cache <- readRDS("data/cache_cons_at390.Rds")
-# # Clean data 
-
-# cons2 <- cons
-# cons <- cons2
-
-# # pop numeric 
-# cons$population_hoclib23 <- cons$population_hoclib23 %>%
-#   str_remove_all(",") %>%
-#   as.numeric()
-
-# # area numeric
-
-# cons$area_hoclib23 <- cons$area_hoclib23 %>%
-#   str_extract(".*(?=\\s*sq\\.\\s*km)") %>%
-#   str_remove_all(",") %>%
-#   as.numeric()
-
-
-# # age perc
-
-# cons$age_0_29_hoclib23 <- cons$age_0_29_hoclib23 %>%
-#   str_extract_all("[0-9]") %>%
-#   as.numeric()
-
-# cons <- cons %>%
-#  mutate(age_0_29_hoclib23 = age_0_29_hoclib23/100)
-
-# # uc numeric
-# #house price numeric
-
-# # Write out ot db 

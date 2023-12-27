@@ -247,9 +247,6 @@ for (i in seq_along(constituencies$constituency_id)) {
   print(paste0(i, " of ", nrow(constituencies), " done."))
 }
 
-i = 332
-
-
 print(paste0(Sys.time(), " | ELECTIONS done."))
 cat("\n")
 
@@ -258,5 +255,3 @@ saveRDS(constituencies, "data/constituencies_raw.Rds")
 
 print(paste0(Sys.time(), " | All done! :)"))
 cat("\n")
-
-#### UK HoC library constituency dashboard
