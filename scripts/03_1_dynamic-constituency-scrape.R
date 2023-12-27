@@ -197,7 +197,7 @@ iframe <- driver$findElement(using = "xpath", value = "//iframe[@title='Constitu
 driver$switchToFrame(iframe)
 Sys.sleep(4)
 
-start_from = 390 # Set the number to start from
+start_from = 1 # Set the number to start from
 for (i in start_from:length(cons$constituency_id)) {
 
   results <- constituency_dash_scraper(cons$cons_name[i], wait_base = 1)
@@ -233,18 +233,6 @@ for (i in start_from:length(cons$constituency_id)) {
 driver$close()
 rD$server$stop()
 system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
-
-# Read in cached files
-
-cons13 <- readRDS("data/cached_files_protected/cache_cons_at13.Rds")
-cons390 <- readRDS("data/cached_files_protected/cache_cons_at390.Rds")
-cons610 <- readRDS("data/cached_files_protected/cache_cons_at610.Rds") 
-
-cons13 <- cons13[1:13,]
-cons390 <- cons390[14:390,]
-cons610 <- cons610[391:610,]
-
-cons <- rbind(cons13, cons390, cons610)
 
 # Filter out any duplicates and merge to one file
 
