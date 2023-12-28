@@ -34,11 +34,6 @@ load_packages(c(
 
 db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
-
-
-
-# TODO: deal with missing values 
-
 apply_random_forest <- function(
   df, 
   dv_name = "",
@@ -59,7 +54,7 @@ apply_random_forest <- function(
     test <- testing(split)
     folds <- vfold_cv(train, v = folds)
     
-    print(paste0("LOG | ", Sys.time(), " | Splits done." ))
+    print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Splits done." ))
 
     recipe <- recipe(dv ~ ., data = df)
 
@@ -81,7 +76,7 @@ apply_random_forest <- function(
     levels = tuning_levels
     )
 
-  print(paste0("LOG | ", Sys.time(), " | Tuning started." ))
+  print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Tuning started." ))
   set.seed(seed)
   tune <- workflow %>%
     tune_grid(
@@ -89,7 +84,7 @@ apply_random_forest <- function(
       grid = tuning_grid)
 
   saveRDS(tune, paste0("data/random-forest-outputs/", output_name, "_tune.Rds"))
-  print(paste0("LOG | ", Sys.time(), " | Tuning done." ))
+  print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Tuning done." ))
   
   final <- workflow %>%
     finalize_workflow(parameters = select_best(tune, "roc_auc"))
@@ -101,7 +96,7 @@ apply_random_forest <- function(
   
   saveRDS(last_fit, paste0("data/random-forest-outputs/", output_name, "last_fit.Rds") )
 
-  print(paste0("LOG | ", Sys.time(), " | Final output for '", output_name, "' done. :)" ))
+  print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Final output done :)" ))
   }
 
 
@@ -136,18 +131,34 @@ analysis_df_econ <- dbGetQuery(
       AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
   JOIN constituencies 
     ON members.member_latest_constituency = constituencies.constituency_id
-  
-  LIMIT 2000
+
   "
 ) %>%
-  mutate(is_econ = factor(is_econ)) # TODO: check convert to factor works
+  mutate(is_econ = factor(
+    is_econ, levels = c(0,1), labels = c(FALSE, TRUE))) 
 
+
+# TODO: should I just exclude and focus on English and Welsh MPs?
+
+# Check which columns are missing
+#sapply(analysis_df_econ, function(x) any(is.na(x)))
+
+# Mean imputation 
+
+replace_na_with_mean <- function(x) {
+  mean_value <- mean(x, na.rm = TRUE)
+  ifelse(is.na(x), mean_value, x)
+}
+
+# Apply the function to columns with NA
+analysis_df_econ$median_house_price_hoclib23 <- replace_na_with_mean(analysis_df_econ$median_house_price_hoclib23)
+analysis_df_econ$uc_claimants_hoclib23 <- replace_na_with_mean(analysis_df_econ$uc_claimants_hoclib23)
 
 apply_random_forest(
-  df = analysis_df_econ, 
-  dv_chr = "is_econ", 
+  df = analysis_df_econ,
+  dv_name = "is_econ",
   output_name = "econ",
-  seed = 1145, 
+  seed = 1145,
   initial_split_prop = 0.8,
   folds = 5,
   tuning_levels = 4,

@@ -1159,10 +1159,91 @@ tm_shape(geog_data$con_shapefile) +
 
 ## Exploratory analysis 
 
+```{r define-forest-functions}
+
+apply_random_forest <- function(
+  df, 
+  dv_name = "",
+  output_name = "",
+  seed = 123, 
+  initial_split_prop = 0.8, 
+  folds = 5, 
+  tuning_levels = 4, 
+  cores = parallel::detectCores()) {
+
+    df <- df %>%
+      rename(dv = all_of(dv_name))
+
+    set.seed(seed)
+    split <- initial_split(df, prop = initial_split_prop)
+
+    train <- training(split)
+    test <- testing(split)
+    folds <- vfold_cv(train, v = folds)
+    
+    print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Splits done." ))
+
+    recipe <- recipe(dv ~ ., data = df)
+
+    spec <- rand_forest(
+      mtry = tune(), 
+      trees = tune(), 
+      min_n = tune()) %>%
+    set_mode("classification") %>%
+    set_engine("ranger", num.threads = cores, importance = "impurity")
+
+  workflow <- workflow() %>%
+    add_recipe(recipe) %>%
+    add_model(spec)
+  
+  tuning_grid <- grid_regular(
+    mtry(range = c(1, ncol(df)-1)), # Change to number of independent variables
+    trees(),
+    min_n(),
+    levels = tuning_levels
+    )
+
+  print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Tuning started." ))
+  set.seed(seed)
+  tune <- workflow %>%
+    tune_grid(
+      resamples = folds, 
+      grid = tuning_grid)
+
+  saveRDS(tune, paste0("data/random-forest-outputs/", output_name, "_tune.Rds"))
+  print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Tuning done." ))
+  
+  final <- workflow %>%
+    finalize_workflow(parameters = select_best(tune, "roc_auc"))
+
+  set.seed(seed)
+
+  last_fit <- final %>%
+    last_fit(split = split)
+  
+  saveRDS(last_fit, paste0("data/random-forest-outputs/", output_name, "last_fit.Rds") )
+
+  print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Final output done :)" ))
+  }
+
+# Function for mean imputation
+
+replace_na_with_mean <- function(x) {
+  mean_value <- mean(x, na.rm = TRUE)
+  ifelse(is.na(x), mean_value, x)
+}
+
+
+```
 
 ```{r econ-tree}
+
+
+# Apply for econ
+
 # FIXME: check why filter BETWEEN reduces number returned 
 ## I think it might be because there are observations *after* the last change 
+
 
 analysis_df_econ <- dbGetQuery(
   db, 
@@ -1193,11 +1274,31 @@ analysis_df_econ <- dbGetQuery(
       AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
   JOIN constituencies 
     ON members.member_latest_constituency = constituencies.constituency_id
+
   "
 ) %>%
-  mutate(is_econ = factor(is_econ)) # TODO: check convert to factor works
+  mutate(is_econ = factor(
+    is_econ, levels = c(0,1), labels = c(FALSE, TRUE))) 
 
-# TODO: deal with missing values 
+
+# TODO: should I just exclude and focus on English and Welsh MPs?
+
+# Check which columns are missing
+#sapply(analysis_df_econ, function(x) any(is.na(x)))
+
+# Apply the function to columns with NA
+analysis_df_econ$median_house_price_hoclib23 <- replace_na_with_mean(analysis_df_econ$median_house_price_hoclib23)
+analysis_df_econ$uc_claimants_hoclib23 <- replace_na_with_mean(analysis_df_econ$uc_claimants_hoclib23)
+
+apply_random_forest(
+  df = analysis_df_econ,
+  dv_name = "is_econ",
+  output_name = "econ",
+  seed = 1145,
+  initial_split_prop = 0.8,
+  folds = 5,
+  tuning_levels = 4,
+  cores = parallel::detectCores())
 
 ```
 

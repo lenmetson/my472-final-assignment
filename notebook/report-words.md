@@ -1,6 +1,25 @@
-# Introduciton 
+# Introduction
+
+What, if any, characteristics and factors discriminate MPs who tend to ask questions about economic issues from MPs who tend to ask questions about health and welfare issues?”
+
+Particularly for backbench MPs - who do not hold Government or Shadow Government roles - parliamentary questions are a critical part of how MPs represent their constituents. 
+
+CANDO: restrict to backbench only - can I do this with API?
+
+One important driver of MP behaviour is the constituency they represent. MPs are held accountable to their constituencies through elections. Therefore, this project seeks to explore how factors related to the constituencies that MPs represent predict whether they ask questions about the economy, or health and welfare issues. 
+
+
+
 
 # Data 
+
+To answer this question, I draw on two sources of data. First, the UK Parliament API endpoins provide data both on the questions that MPs ask, but also data on MPs and the electoral results of the constituencies they represent. However, more detailed information about constituencies is limited. The UK House of Commons Library publishes an interactive dashboard with information on the demographics of every constituency. I use Selinium to dynamically scrape data from this dashboard. 
+
+TODO resrict to 2023? would make sense with the constituency information, and would be easier to reproduce 
+- This would involve
+  - Limiting query of questions
+  - Limiting query of members
+- Do this with a branch maybe? 
 
 To store the data I collect, I will use a local relational database. This will improve the efficiency of the storage because... It will also allow me to query only the variables I need for anlausis 
 
@@ -26,30 +45,13 @@ I then will create an additional table with the results of the measurmeent I use
 
 First, I scraped all questions availble from the written and oral endpoints. Both endpoints only return up to 100 questions with one request. However, you can skip responses. Therefore, you can retrieve all questions by looping through... 
 
-These reponses do not return the full text of each question, so I use these responses as a sampling frame 
+Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked. 
 
+I obtained more constituency information from the UK House of Commons Library Constituecy dashboard. This does not have an API, and contains dynamic elements, so I used Selinum to scrape it. 
 
-Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked 
+```{r selinium-code}
 
-
-- Constituency characteristics
-  - Previous electoral results 
-  - Socio-demographic features of the constituency
-
-
-Constituency info
-- We will get the cosntituency ID from the members pull. We can pull:
-  - Election results for each constituency over different elections 
-  - Shape files (for plotting later)
-- Would like to add 
-  - Basic demographic information 
-  - Economic indicators 
-  - Health indicators 
-
-
-
-
-I obtained more constituency information from the UK House of Commons Library Constituecy dashboard. This does not have an API, and contains dynamic elements, so I use selinum to scrape it. 
+```
 
 This process was somewhat complicated by the fact that the dashboard is contained within an "iframe". This allows a different html tree to be embedded within the main html of the webpage meaning any CSS paths do not point to the actual path of the webpage. Do do this, we need to identify the iframe and use `switchToFrame()` to identify elements on the dashboard. 
 
@@ -72,10 +74,35 @@ These categories are not mutally exlusive. In fact, we would expect many to over
 
 Having measured question topics, I first plot how they vary over time and across the UK. 
 
+### Over time 
+
+- Plot 
+- Short anlaysis 
+
+
+### Over constituency 
+
+- Plot 
+- Short analysis 
 
 
 ## Exploratory analysis 
 
+TODO: operationalise electoral history
+- Count party has won
+- Av. majority in last 4 elections
+
 Next, I conduct an exporatory anlaysis to see which factors about an MP and their constituency might predict whether they ask economic or health/welfare questions. 
+
+
+Missing values
+- Mean imputation 
+
+
+Only two columns have NAs. This is Scotish and Northern Irish constituncies where house prices and universial credit claimants were not avialble
+
+TODO try with removal?
+
+`sapply(analysis_df_econ, function(x) any(is.na(x)))`
 
 # Code appendix
