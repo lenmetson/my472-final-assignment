@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 ```
 
-```{r, eval = TRUE}
+```{r basic-setup, eval = TRUE}
 
 # Define function to install or load packages
 load_packages <- function(x) {
@@ -30,16 +30,35 @@ load_packages <- function(x) {
 load_packages(c(
     "tidyverse",
     "here",
+    # Database management
     "DBI",
     "RSQLite",
+    # APIs and webscraping
     "httr",
-    "RSelenium"
+    "RSelenium",
+    # Text analysis 
+    "tm", 
+    # Geospatial plots
+    "tmap", 
+    "sf", 
+    "ggrepel", 
+    # Random forests
+    "parallel",
+    "ranger",
+    "tidymodels",
+    "vip", 
+    "rpart", 
+    "rpart.plot"
     ))
+
+db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
+
 
 ```
 
 
-```{r, eval = TRUE}
+
+```{r functions, eval = TRUE}
 
 db_table_check <- function(database, table){
   
@@ -78,9 +97,6 @@ replace_null_with_na <- function(x) {
 # Data 
 
 
-```{r, eval = TRUE}
-db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
-```
 
 To store the data I collect, I will use a local relational database. This will improve the efficiency of the storage because... It will also allow me to query only the variables I need for anlausis 
 
@@ -108,7 +124,9 @@ First, I scraped all questions availble from the written and oral endpoints. Bot
 
 These reponses do not return the full text of each question, so I use these responses as a sampling frame 
 
-```{r}
+```{r pull-oral-questions}
+
+
 
 get_qs <- function(endpoint_url, n_skip = 0) {
   url <- paste0(
@@ -118,7 +136,7 @@ get_qs <- function(endpoint_url, n_skip = 0) {
     "&parameters.take=100")
 
   response <-
-    GET(url) |>
+    GET(url) %>%
     content("parsed")
 
   return(response)
@@ -129,7 +147,7 @@ get_qs <- function(endpoint_url, n_skip = 0) {
 pull_all_oral_qs <- function(endpoint_url){
 
   # Calculate how many questions are in the end point
-  n_resp <- GET(paste0(endpoint_url, "?parameters.take=1")) |>
+  n_resp <- GET(paste0(endpoint_url, "?parameters.take=1")) %>%
     content("parsed")
   n <- n_resp$PagingInfo$GlobalTotal
 
@@ -175,7 +193,8 @@ saveRDS(oral_questions, "data/oral_questions.RDS")
 ```
 
 
-```{r}
+```{r clean-oral-questions}
+
 oral_questions <- readRDS("data/oral_questions.RDS")
 
 ### Convert elements of the list into tables ###
@@ -322,7 +341,8 @@ glimpse(questions)
 
 Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked 
 
-```{r}
+```{r pull-members-endpoint}
+
 pull_members <- function(base_url, df) {
 
   cat("\n")
@@ -452,7 +472,8 @@ db_table_check(db, "members")
 
 ```
 
-```{r}
+```{r pull-constituency-endpoints}
+
 MPs <- dbGetQuery(db,
   "
   SELECT * 
@@ -519,7 +540,7 @@ pull_const_info <- function(cons_id) {
     "https://members-api.parliament.uk/api/Location/Constituency/",
     cons_id)
 
-    basic_info <- httr::GET(url) |>
+    basic_info <- httr::GET(url) %>%
     httr::content("parsed")
 
     return(basic_info)
@@ -559,7 +580,7 @@ get_cons_shapefile <- function(cons_id) {
     cons_id,
     "/Geometry")
 
-  shapefile <- httr::GET(url) |>
+  shapefile <- httr::GET(url) %>%
     httr::content("parsed")
 
   return(shapefile)
@@ -596,7 +617,7 @@ get_cons_election_results <- function(cons_id) {
     cons_id,
     "/ElectionResults")
 
-  results <- httr::GET(url) |>
+  results <- httr::GET(url) %>%
     httr::content("parsed")
 
   return(results)
@@ -701,7 +722,7 @@ This process was somewhat complicated by the fact that the dashboard is containe
 
 HOUSEPRICE INFO ONLY IN ENG AND WALES, that's why so many NAs
 
-```{r}
+```{r selenium-scrape-hoc-dashboard}
 
 cons <- readRDS("data/constituencies_raw.Rds") 
 
@@ -1006,9 +1027,10 @@ db_table_check(db, "constituencies")
 DBI::dbDisconnect(db)
 ```
 
-DIAGRAM OF FINAL RELATIONAL DATABASE
 
 # Analysis 
+
+## Measure topics 
 
 ```{r}
 question_text <- dbGetQuery(
@@ -1021,8 +1043,33 @@ question_text <- dbGetQuery(
 
 # Measure 
 
+# Initalise variables as FALSE
 question_text$is_econ <- 0
-question_text$is_soc <- 0
+question_text$is_health_welf <- 0
+
+# clean question text 
+
+question_text$question_short_text <- question_text$question_short_text %>%
+    tolower() %>% # Convert to lower case
+    tm::removePunctuation() # remove punctuation
+
+# Define dictionaries 
+# TODO: better define dictionaries
+econ_dict <- 
+  "econ*|inflat*|grow*|interest rate*|budget*|gdp|autumn statement*|financ*|chancellor"
+health_welf_dict <- " nhs |universal credit| covid |pandemic*"
+
+question_text <- question_text %>%
+  mutate(
+    is_econ = as.numeric(str_detect(question_short_text, econ_dict)), 
+    is_health_welf = as.numeric(str_detect(question_short_text, health_welf_dict))
+  )
+
+ ``` 
+
+```{r}
+
+# Write out measured data to new table
 
 question_text <- question_text %>% select(-question_short_text)
 
@@ -1030,76 +1077,97 @@ dbWriteTable(db, "question_topics", question_text, overwrite=TRUE)
 
 ```
 
-```{r}
-analysis_df <- dbGetQuery(
-  db, 
+## Descriptive analysis 
+
+### Time 
+
+```{r time-plot, eval = TRUE}
+
+# Query database to return a table with the count of questions asked on each day 
+
+time_data <- dbGetQuery(db, 
   "
   SELECT 
-    oral_questions.question_short_text,
-    oral_questions.question_tabled_when,
+    oral_questions.question_tabled_when AS date_asked,
+    SUM(question_topics.is_econ) AS econ_count,
+    SUM(question_topics.is_health_welf) AS health_welf_count, 
+    COUNT(*) AS total_question_count,
+    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
+    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop
 
-    members.member_name_display,
-    members.member_latest_party,
-    members.member_gender,
-    
-    constituencies.cons_name,
-    constituencies.last_election_1_electorate,   
-    constituencies.last_election_1_turnout,          
-    constituencies.last_election_1_majority,     
-    constituencies.last_election_1_result,           
-    constituencies.last_election_1_winning_party,
-    constituencies.last_election_1_election_ID,      
-    constituencies.last_election_1_electionDate, 
-    constituencies.last_election_1_isGeneralElection,
-    constituencies.last_election_2_electorate,   
-    constituencies.last_election_2_turnout,          
-    constituencies.last_election_2_majority,     
-    constituencies.last_election_2_result,           
-    constituencies.last_election_2_winning_party,
-    constituencies.last_election_2_election_ID,      
-    constituencies.last_election_2_electionDate, 
-    constituencies.last_election_2_isGeneralElection,
-    constituencies.last_election_3_electorate,   
-    constituencies.last_election_3_turnout,          
-    constituencies.last_election_3_majority,     
-    constituencies.last_election_3_result,           
-    constituencies.last_election_3_winning_party,
-    constituencies.last_election_3_election_ID,      
-    constituencies.last_election_3_electionDate, 
-    constituencies.last_election_3_isGeneralElection,
-    constituencies.last_election_4_electorate,   
-    constituencies.last_election_4_turnout,          
-    constituencies.last_election_4_majority,     
-    constituencies.last_election_4_result,           
-    constituencies.last_election_4_winning_party,
-    constituencies.last_election_4_election_ID,      
-    constituencies.last_election_4_electionDate, 
-    constituencies.last_election_4_isGeneralElection,                
-    constituencies.region_nation_hoclib23,           
-    constituencies.population_hoclib23,          
-    constituencies.area_hoclib23,                   
-    constituencies.age_0_29_hoclib23,            
-    constituencies.age_30_64_hoclib23,               
-    constituencies.age_65_plus_hoclib23,         
-    constituencies.uc_claimants_hoclib23,            
-    constituencies.median_house_price_hoclib23 
 
   FROM oral_questions
-  JOIN members 
-    ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
-      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
-  JOIN constituencies 
-    ON members.member_latest_constituency = constituencies.constituency_id
-  "
-) 
+    LEFT JOIN question_topics ON oral_questions.question_id = question_topics.question_id
+  
+  GROUP BY 
+    oral_questions.question_tabled_when
+  ")
+
+
+time_data$date_asked <- as.Date(time_data$date_asked)
+time_data$year <- format(time_data$date_asked, "%Y") 
+
+plot <- time_data %>%
+  ggplot(aes(x=date_asked)) +
+  geom_col(aes(y=econ_count)) + 
+  geom_smooth(aes(y=econ_count))
+
+plot
+
 ```
 
-```{r}
+```{r geog-plot, eval = TRUE}
+
+geog_data <- dbGetQuery(db, 
+  "
+  SELECT 
+    constituencies.cons_name AS constituency, 
+    
+    SUM(question_topics.is_econ) AS econ_count,
+    SUM(question_topics.is_health_welf) AS health_welf_count, 
+    COUNT(*) AS total_question_count,
+    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
+    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
+    
+    constituencies.shapefile AS con_shapefile
+
+
+  FROM oral_questions
+    JOIN question_topics 
+      ON oral_questions.question_id = question_topics.question_id
+    JOIN members
+      ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
+        AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
+    JOIN constituencies 
+      ON members.member_latest_constituency = constituencies.constituency_id
+  
+  GROUP BY constituencies.cons_name
+  "
+  )
+
+# Plot base map
+tm_shape(geog_data$con_shapefile) +
+  tm_sf()
+
+
+
+```
+
+### Geography
+
+
+## Exploratory analysis 
+
+
+```{r econ-tree}
+# FIXME: check why filter BETWEEN reduces number returned 
+## I think it might be because there are observations *after* the last change 
+
 analysis_df_econ <- dbGetQuery(
   db, 
   "
   SELECT 
-    question_topics.is_econ,
+    question_topics.is_econ AS is_econ,
 
     members.member_latest_party,
     members.member_gender,
@@ -1125,18 +1193,36 @@ analysis_df_econ <- dbGetQuery(
   JOIN constituencies 
     ON members.member_latest_constituency = constituencies.constituency_id
   "
-) 
+) %>%
+  mutate(is_econ = factor(is_econ)) # TODO: check convert to factor works
+
+# TODO: deal with missing values 
+
 ```
 
-- Measuring question topic 
+```{r}
+#econ_last_fit <- readRDS("data/rf_econ_last_fit.Rds"))
 
-- https://www.cambridge.org/core/journals/political-analysis/article/crossdomain-topic-classification-for-political-texts/F074564984969CE168BCBCF5E7D931C8 - could be useful as pre-trained model 
+# Variable importance plot
 
-  - Write back out to question table? 
+econ_vi_plot <- econ_last_fit %>%
+  pluck(".workflow", 1) %>%
+  extract_fit_parsnip() %>%
+  vip(num_features = 10) + #  CANDO can vary this
+  labs(title = "Variable importance for asking Economic Questions")
 
-- Measuring important predictos 
+econ_vi_plot
+
+```
 
 # Code appendix
+```{r, eval = TRUE}
+sessionInfo()
+```
+
 ```{r ref.label=knitr::all_labels(), echo=TRUE} 
 
 ```
+
+
+
