@@ -35,93 +35,10 @@ load_packages(c(
 db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
 
-analysis_df_econ <- dbGetQuery(
-  db, 
-  "
-  SELECT 
-    question_topics.is_econ AS is_econ,
-
-    members.member_latest_party,
-    members.member_gender,
-    constituencies.last_election_1_electorate,   
-    constituencies.last_election_1_turnout,         
-    constituencies.last_election_1_majority,               
-    constituencies.last_election_1_isGeneralElection,              
-    constituencies.region_nation_hoclib23,           
-    constituencies.population_hoclib23,          
-    constituencies.area_hoclib23,                   
-    constituencies.age_0_29_hoclib23,            
-    constituencies.age_30_64_hoclib23,               
-    constituencies.age_65_plus_hoclib23,         
-    constituencies.uc_claimants_hoclib23,            
-    constituencies.median_house_price_hoclib23 
-
-  FROM oral_questions
-  JOIN question_topics
-    ON oral_questions.question_id = question_topics.question_id
-  JOIN members 
-    ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
-      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
-  JOIN constituencies 
-    ON members.member_latest_constituency = constituencies.constituency_id
-  "
-) %>%
-  mutate(is_econ = factor(is_econ)) # TODO: check convert to factor works
 
 
 # TODO: deal with missing values 
 
-cores <- cores <- detectCores() # For parallel processing
-seed <- 1113
-
-set.seed(seed)
-econ_split <- initial_split(analysis_df_econ, prop = 0.8)
-econ_train <- training(econ_split)
-econ_test <- testing(econ_split)
-econ_folds <- vfold_cv(econ_train, v = 5) # CANDO change folds
-
-econ_recipe <- recipe(is_econ ~ ., data = analysis_df_econ)
-
-econ_spec <- 
-  rand_forest(
-    mtry = tune(), 
-    trees = tune(), 
-    min_n = tune()) %>%
-  set_mode("classification") %>%
-  set_engine("ranger", num.threads = cores, importance = "impurity")
-
-econ_workflow <- workflow() %>%
-  add_recipe(econ_recipe) %>%
-  add_model(econ_spec)
-
-econ_tuning_grid <- grid_regular(
-  mtry(range = c(1, ncol(analysis_df_econ)-1)), # Change to number of independent variables
-  trees(),
-  min_n(),
-  levels = 4 # CANDO Can change number of levels 
-)
-
-set.seed(seed)
-econ_tune <- econ_workflow %>%
-  tune_grid(
-    resamples = econ_folds, 
-    grid = econ_tuning_grid, 
-    control = control_resamples(save_prod = TRUE)
-  )
-
-saveRDS(econ_tune, "data/rf_econ_tune.Rds") # Save tuning output 
-# econ_tune <- readRDS("data/rf_econ_tune.Rds")
-
-econ_final <- econ_workflow %>%
-  finalize_workflow(parameters = select_best(econ_tune, "roc_auc"))
-
-set.seed(seed)
-econ_last_fit <- econ_final %>%
-  tune::last_fit(split = econ_split)
-
-saveRDS(econ_last_fit, "data/rf_econ_last_fit.Rds")
-
-### FUNCTIONALISE 
 apply_random_forest <- function(
   df, 
   dv,
@@ -179,7 +96,43 @@ apply_random_forest <- function(
   saveRDS(last_fit, paste0("data/random-forest-outputs/", output_name, "last_fit.Rds") )
   }
 
-# Apply for econ 
+
+# Apply for econ
+
+analysis_df_econ <- dbGetQuery(
+  db, 
+  "
+  SELECT 
+    question_topics.is_econ AS is_econ,
+
+    members.member_latest_party,
+    members.member_gender,
+    constituencies.last_election_1_electorate,   
+    constituencies.last_election_1_turnout,         
+    constituencies.last_election_1_majority,               
+    constituencies.last_election_1_isGeneralElection,              
+    constituencies.region_nation_hoclib23,           
+    constituencies.population_hoclib23,          
+    constituencies.area_hoclib23,                   
+    constituencies.age_0_29_hoclib23,            
+    constituencies.age_30_64_hoclib23,               
+    constituencies.age_65_plus_hoclib23,         
+    constituencies.uc_claimants_hoclib23,            
+    constituencies.median_house_price_hoclib23 
+
+  FROM oral_questions
+  JOIN question_topics
+    ON oral_questions.question_id = question_topics.question_id
+  JOIN members 
+    ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
+      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
+  JOIN constituencies 
+    ON members.member_latest_constituency = constituencies.constituency_id
+  "
+) %>%
+  mutate(is_econ = factor(is_econ)) # TODO: check convert to factor works
+
+
 random_forest(
   df = analysis_df_econ, 
   dv = is_econ, 
