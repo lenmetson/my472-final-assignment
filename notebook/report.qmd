@@ -1116,6 +1116,8 @@ plot
 
 ```
 
+### Geography
+
 ```{r geog-plot, eval = TRUE}
 
 geog_data <- dbGetQuery(db, 
@@ -1153,7 +1155,6 @@ tm_shape(geog_data$con_shapefile) +
 
 ```
 
-### Geography
 
 
 ## Exploratory analysis 
