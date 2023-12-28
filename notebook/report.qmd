@@ -126,8 +126,6 @@ These reponses do not return the full text of each question, so I use these resp
 
 ```{r pull-oral-questions}
 
-
-
 get_qs <- function(endpoint_url, n_skip = 0) {
   url <- paste0(
     endpoint_url,
@@ -193,7 +191,7 @@ saveRDS(oral_questions, "data/oral_questions.RDS")
 ```
 
 
-```{r clean-oral-questions}
+```{r clean-oral-questions, eval = TRUE}
 
 oral_questions <- readRDS("data/oral_questions.RDS")
 
@@ -224,7 +222,7 @@ for (i in seq_along(oral_questions)) {
     oral_questions[[i]]$AskingMember <- NULL
   }
 
- progress_perc(i, length(oral_questions), "MEMBERS:")
+ progress_perc(i, length(oral_questions), "MEMBERS:") # TODO Remove progress percs
 
 
 }
