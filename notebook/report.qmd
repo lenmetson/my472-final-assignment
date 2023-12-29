@@ -491,9 +491,6 @@ for(i in seq_along(constituencies$constituency_id)) {
 
 }
 
-
-print(paste0("LOG | Constituency API call - basic | ", Sys.time(), " | DONE "))
-
 ### Pull shape file
 
 get_cons_shapefile <- function(cons_id) {
@@ -517,8 +514,6 @@ for(i in seq_along(constituencies$constituency_id)) {
   Sys.sleep(0.5)
   print(paste0("LOG | Constituency API call - shapefile | ", Sys.time(), " | ", i, " of ", length(constituencies$constituency_id), " done"))
 }
-
-print(paste0("LOG | Constituency API call - shapefile | ", Sys.time(), " | DONE "))
 
 ### Pull election results
 
@@ -601,11 +596,8 @@ for (i in seq_along(constituencies$constituency_id)) {
   print(paste0("LOG | Constituency API call - elections | ", Sys.time(), " | ", i, " of ", length(constituencies$constituency_id), " done"))
 }
 
-print(paste0("LOG | Constituency API call - elections | ", Sys.time(), " | DONE "))
-
 saveRDS(constituencies, "data/constituencies_raw.Rds")
 
-print(paste0("LOG | Constituency API call | ", Sys.time(), " | ALL DONE "))
 
 ```
 
