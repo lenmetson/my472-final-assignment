@@ -891,10 +891,6 @@ db_table_check(db, "members")
 db_table_check(db, "constituencies")
 ```
 
-```{r, eval = TRUE}
-# Disconnect from local database
-DBI::dbDisconnect(db)
-```
 
 
 # Analysis 
@@ -1195,6 +1191,12 @@ econ_vi_plot <- econ_last_fit %>%
 
 econ_vi_plot
 
+```
+
+
+```{r, eval = TRUE}
+# Disconnect from local database
+DBI::dbDisconnect(db)
 ```
 
 # Code appendix
