@@ -1,3 +1,5 @@
+FIXME move whatever Rds needed from library scrape as that does not change with the 2023 pull
+
 TODO: MVP
 
 - Measure DV
