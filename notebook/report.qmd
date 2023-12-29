@@ -126,16 +126,19 @@ These reponses do not return the full text of each question, so I use these resp
 
 ```{r pull-oral-questions}
 
-get_qs <- function(endpoint_url, n_skip = 0) {
+# This code can also be run by sourcing scripts/01_pull-oral-questions.R 
+
+GET_qs <- function(endpoint_url, n_skip = 0) {
   url <- paste0(
     endpoint_url,
     "?parameters.skip=",
     n_skip,
+    "&parameters.answeringDateStart=2023-01-01&parameters.answeringDateEnd=2023-12-31", # Limit to 2023
     "&parameters.take=100")
 
   response <-
-    GET(url) %>%
-    content("parsed")
+    httr::GET(url) %>%
+    httr::content("parsed") # Use :: because tm masks content 
 
   return(response)
 }
@@ -145,15 +148,18 @@ get_qs <- function(endpoint_url, n_skip = 0) {
 pull_all_oral_qs <- function(endpoint_url){
 
   # Calculate how many questions are in the end point
-  n_resp <- GET(paste0(endpoint_url, "?parameters.take=1")) %>%
-    content("parsed")
+  n_resp <- httr::GET(paste0(
+    endpoint_url,
+    "?parameters.answeringDateStart=2023-01-01&parameters.answeringDateEnd=2023-12-31", # Limit to 2023
+    "&parameters.take=1")) %>%
+    httr::content("parsed")
   n <- n_resp$PagingInfo$GlobalTotal
 
   # Questions can be pulled in batches of 100,
   # calculate how many time we will have to pull
   n_loops <- ceiling(n / 100)
 
-  print(paste0("Oral Qs done at ", Sys.time()))
+  print(paste0("LOG | ", Sys.time(), " | Oral question pull starting"))
 
   for (i in 1:n_loops) {
 
@@ -161,23 +167,23 @@ pull_all_oral_qs <- function(endpoint_url){
 
     if (i == 1) { # On first iteration, make new list
 
-      response <- get_qs(endpoint_url, n_skip)
+      response <- GET_qs(endpoint_url, n_skip)
       response <- response$Response
 
     } else { # On all other iterations, append to existing list
 
-      response_new <- get_qs(endpoint_url, n_skip)
+      response_new <- GET_qs(endpoint_url, n_skip)
       response_new <- response_new$Response
       response <- c(response, response_new) # Merge responses
 
     }
 
-    print(paste0(i, " of ", n_loops, " done.")) # Print progress message
+    print(paste0("LOG | ", Sys.time(), " | ", i, " of ", n_loops, " done.")) # Print progress message
     Sys.sleep(1) # Sleep to avoid hammering the API
 
   }
 
-  print(paste0("Oral Qs done at ", Sys.time()))
+  print(paste0("LOG | ", Sys.time(), " | Oral question pull done :)"))
   return(response)
 }
 
@@ -186,88 +192,21 @@ pull_all_oral_qs <- function(endpoint_url){
 oral_questions <- pull_all_oral_qs(
   "https://oralquestionsandmotions-api.parliament.uk/oralquestions/list")
 
-saveRDS(oral_questions, "data/oral_questions.RDS")
+saveRDS(oral_questions, "data/oral_questions_2023.RDS")
 
 ```
 
 
 ```{r clean-oral-questions, eval = TRUE}
 
-oral_questions <- readRDS("data/oral_questions.RDS")
+oral_questions <- readRDS("data/oral_questions_2023.RDS")
 
-### Convert elements of the list into tables ###
 
-# Members asking
-
-for (i in seq_along(oral_questions)) {
-  if (i == 1) {
-
-    # Extract asking member information
-    member_df <- data.frame(lapply(
-      oral_questions[[i]]$AskingMember,
-      function(x) ifelse(is.null(x), NA, x)))
-
-    member_df$question_id <- oral_questions[[i]]$Id
-
-    oral_questions[[i]]$AskingMember <- NULL 
-  } else {
-
-    member_df2 <- data.frame(lapply(
-      oral_questions[[i]]$AskingMember,
-      function(x) ifelse(is.null(x), NA, x)))
-
-    member_df2$question_id <- oral_questions[[i]]$Id
-    member_df <- rbind(member_df, member_df2)
-
+for (i in seq_along(oral_questions)) { 
+   # remove sublists, otherwise names do not match
     oral_questions[[i]]$AskingMember <- NULL
-  }
-
- progress_perc(i, length(oral_questions), "MEMBERS:") # TODO Remove progress percs
-
-
-}
-
-# Ministers answering
-
-minister_df <- data.frame() # Initialise empty dataframe 
-
-for (i in seq_along(oral_questions)) {
-  if (is.null(oral_questions[[i]]$AnsweringMinister) == FALSE){
-    
-    if (nrow(minister_df) == 0) { # Check whether this is the first to have an answering minister
-
-      minister_df <- data.frame(lapply(
-        oral_questions[[i]]$AnsweringMinister,
-        function(x) ifelse(is.null(x), NA, x)))
-
-      minister_df$question_id <- oral_questions[[i]]$Id
-
-      oral_questions[[i]]$AnsweringMinister <- NULL # Remove old sublist
-
-    } else {
-
-      minister_df2 <- data.frame(lapply(
-        oral_questions[[i]]$AnsweringMinister,
-        function(x) ifelse(is.null(x), NA, x)))
-
-      minister_df2$question_id <- oral_questions[[i]]$Id
-
-      minister_df <- rbind(minister_df, minister_df2)
-
-      oral_questions[[i]]$AnsweringMinister <- NULL # Remove old sublist
-    }
-
-  } else {
     oral_questions[[i]][["AnsweringMinister"]] <- NULL
-  }
 
- progress_perc(i, length(oral_questions), "MINISTERS:")
-
-}
-
-# Questions
-
-for (i in seq_along(oral_questions)) {
   if (i == 1){
     question_df <- data.frame(lapply(
       oral_questions[[i]],
@@ -284,63 +223,36 @@ for (i in seq_along(oral_questions)) {
 
 }
 
-rm(member_df2, minister_df2, question_df2, i)
+rm(question_df2, i)
 
 ### Clean dataframes and merge into one table ####
 
 question_df <- question_df %>%
   select(
     question_id = Id,
-    question_short_text = QuestionText,
-    question_status = Status,
+    question_text = QuestionText,
+    asking_member = AskingMemberId,
     question_tabled_when = TabledWhen,
     question_answering_when = AnsweringWhen,
-    question_answering_body_id = AnsweringBodyId)
+    question_answering_body = AnsweringBody,
+    question_answering_body_id = AnsweringBodyId,
+    answering_member = AnsweringMinisterId)
 
-minister_df <- minister_df %>%
-  select(
-    question_id,
-    minister_Mnis_ID = MnisId
-    )
-
-member_df <- member_df %>%
-  select(
-    question_id,
-    member_asking_Mnis_ID = MnisId)
-
-
-question_table_main <- 
-  left_join(question_df, member_df, by = "question_id")
-
-question_table_main <- 
-  left_join(question_table_main, minister_df, by = "question_id")
 ```
 
 ```{r}
-
-dbWriteTable(db, "oral_questions", question_table_main, overwrite = TRUE)
-db_table_check(db, "oral_questions")
-
+dbWriteTable(db, "oral_questions", question_df, overwrite = TRUE)
 ```
 
-
-```{r}
-questions <- dbGetQuery(db, 
-  "
-  SELECT *
-  FROM oral_questions
-
-  LIMIT 100
-  "
-  )
-
-glimpse(questions)
-```
 
 Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked 
 
 ```{r pull-members-endpoint}
 
+# This code can also be run by sourcing scripts/02_pull-oral-questions.R 
+
+# TODO Run 2023 from here 
+# TODO pull for ministers too, in case we want to add is.same.party 
 pull_members <- function(base_url, df) {
 
   cat("\n")
@@ -374,7 +286,7 @@ pull_members <- function(base_url, df) {
 
     Sys.sleep(0.5)
 
-    setTxtProgressBar(pb, i)
+    setTxtProgressBar(pb, i) # TODO remove progress bar, replace with LOG
 
 
   }
@@ -385,9 +297,6 @@ pull_members <- function(base_url, df) {
   return(response)
 }
 
-# Connect to database
-
-db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
 # Query the question database for the date the question was tables and who asked it 
 questions <- dbGetQuery(db, 
@@ -1034,7 +943,7 @@ DBI::dbDisconnect(db)
 question_text <- dbGetQuery(
   db, 
   "
-  SELECT question_id, question_short_text
+  SELECT question_id, question_text
   FROM oral_questions
   "
 ) 
@@ -1047,7 +956,7 @@ question_text$is_health_welf <- 0
 
 # clean question text 
 
-question_text$question_short_text <- question_text$question_short_text %>%
+question_text$question_text <- question_text$question_text %>%
     tolower() %>% # Convert to lower case
     tm::removePunctuation() # remove punctuation
 
@@ -1059,8 +968,8 @@ health_welf_dict <- " nhs |universal credit| covid |pandemic*"
 
 question_text <- question_text %>%
   mutate(
-    is_econ = as.numeric(str_detect(question_short_text, econ_dict)), 
-    is_health_welf = as.numeric(str_detect(question_short_text, health_welf_dict))
+    is_econ = as.numeric(str_detect(question_text, econ_dict)), 
+    is_health_welf = as.numeric(str_detect(question_text, health_welf_dict))
   )
 
  ``` 
@@ -1069,7 +978,7 @@ question_text <- question_text %>%
 
 # Write out measured data to new table
 
-question_text <- question_text %>% select(-question_short_text)
+question_text <- question_text %>% select(-question_text)
 
 dbWriteTable(db, "question_topics", question_text, overwrite=TRUE)
 
