@@ -53,10 +53,7 @@ load_packages(c(
 
 db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
-
 ```
-
-
 
 ```{r functions, eval = TRUE}
 
@@ -252,7 +249,7 @@ Many MP characteristics change over time - such as the party they represent, the
 
 ```{r pull-members-endpoint}
 
-# This code can also be run by sourcing scripts/02_pull-oral-questions.R 
+# This code can also be run by sourcing scripts/02_pull-members-endpoint.R 
 
 pull_members <- function(base_url, df) {
 
@@ -302,7 +299,7 @@ members_asking <- dbGetQuery(db,
 ministers_answering <- dbGetQuery(db,
   "
   SELECT 
-    answering_member AS member_id, 
+    answering_member AS member_id,
     question_tabled_when
   FROM oral_questions
   ")
@@ -310,7 +307,8 @@ ministers_answering <- dbGetQuery(db,
 q_parameters <- rbind(members_asking, ministers_answering)
 
 # Only keep unique MP-date pairs to avoid pulling the same information twice
-q_parameters <- unique(q_parameters)
+q_parameters <- unique(q_parameters) %>%
+  filter(member_id != 0) # Remove 0s because these indicate no minister has answered
 
 
 q_parameters <- q_parameters %>%
@@ -326,6 +324,7 @@ saveRDS(members, "data/members_raw.Rds")
 ```
 
 ```{r clean-members-pull}
+# from here
 members <- readRDS("data/members_raw.Rds")
 
 # TODO run in quarto 
@@ -337,21 +336,22 @@ members <-  lapply(
 
 for (i in seq_along(members)) {
 
-  if (i == 1) {
+    if (i == 1) { 
 
-    members_df <- members[i] %>%
-      unlist() %>%
-      t() %>%
-      data.frame()
+      members_df <- members[i] %>%
+        unlist() %>%
+        t() %>%
+        data.frame()
 
-  } else {
-    members_df_new <- members[i] %>%
-      unlist() %>%
-      t() %>%
-      data.frame()
+    } else {
+      members_df_new <- members[i] %>%
+        unlist() %>%
+        t() %>%
+        data.frame()
 
-    members_df <- rbind(members_df, members_df_new)
-  }
+      members_df <- rbind(members_df, members_df_new)
+    }
+
 }
 
 members_df <- members_df %>%
@@ -400,7 +400,8 @@ db_table_check(db, "members")
 ```
 
 ```{r pull-constituency-endpoints}
-
+# TODO add reference to source script, and check they are the same 
+# TODO re-run 
 MPs <- dbGetQuery(db,
   "
   SELECT * 
@@ -1076,7 +1077,8 @@ geog_data <- dbGetQuery(db,
       ON oral_questions.question_id = question_topics.question_id
     JOIN members
       ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
-        AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
+        /* select row where date of question comes between the dates valid range */
+        AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max 
     JOIN constituencies 
       ON members.member_latest_constituency = constituencies.constituency_id
   
@@ -1175,12 +1177,18 @@ replace_na_with_mean <- function(x) {
 
 ```{r econ-tree}
 
-
 # Apply for econ
 
 # FIXME: check why filter BETWEEN reduces number returned 
-## I think it might be because there are observations *after* the last change 
+## I think it might be because there are observations *after* the last change - work back somehow?? replace all max dates for an ID with the last Q??
+## Also, I should do the "unique" thing with only display name (after column selection), as that seems to be the main source of change
 
+# TODO: add DVs 
+# seat marginality measure - average majority in last four elections, count of party wins
+# add average turnout measure 
+# add average registration rate (electorate/population) over last 4
+# add answering minister details (party, gender)
+# add matches dummies (same party, same gender) 
 
 analysis_df_econ <- dbGetQuery(
   db, 
@@ -1188,8 +1196,8 @@ analysis_df_econ <- dbGetQuery(
   SELECT 
     question_topics.is_econ AS is_econ,
 
-    members.member_latest_party,
-    members.member_gender,
+    members.latest_party AS asking_MP_party,
+    members.gender AS asking_MP_gender,
     constituencies.last_election_1_electorate,   
     constituencies.last_election_1_turnout,         
     constituencies.last_election_1_majority,               

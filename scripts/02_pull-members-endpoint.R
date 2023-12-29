@@ -50,7 +50,7 @@ members_asking <- dbGetQuery(db,
 ministers_answering <- dbGetQuery(db,
   "
   SELECT 
-    answering_member AS member_id, 
+    answering_member AS member_id,
     question_tabled_when
   FROM oral_questions
   ")
@@ -58,7 +58,8 @@ ministers_answering <- dbGetQuery(db,
 q_parameters <- rbind(members_asking, ministers_answering)
 
 # Only keep unique MP-date pairs to avoid pulling the same information twice
-q_parameters <- unique(q_parameters)
+q_parameters <- unique(q_parameters) %>%
+  filter(member_id != 0) # Remove 0s because these indicate no minister has answered
 
 
 q_parameters <- q_parameters %>%
@@ -71,4 +72,5 @@ members <- pull_members(
   q_parameters)
 
 saveRDS(members, "data/members_raw.Rds")
+
 print(paste0("LOG Member Pull | ", Sys.time(), " |  All done, file saved :)"))
