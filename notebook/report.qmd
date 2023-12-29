@@ -920,7 +920,6 @@ question_text$question_text <- question_text$question_text %>%
 
 # Define dictionaries 
 # TODO: better define dictionaries
-# CANDO: define by ministry asked to? 
 
 econ_dict <- 
   "econ*|inflat*|grow*|interest rate*|budget*|gdp|autumn statement*|financ*|chancellor"
