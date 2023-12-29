@@ -908,41 +908,40 @@ question_text <- dbGetQuery(
 
 # Measure 
 
-# Initalise variables as FALSE
-question_text$is_econ <- 0
-question_text$is_health_welf <- 0
+# TODO add measure by dept 
 
-# clean question text 
+answering_bodies <- dbGetQuery(db, 
+  "
+  SELECT question_answering_body, question_answering_body_id
+  FROM oral_questions
+  ") %>%
+  unique()
 
-question_text$question_text <- question_text$question_text %>%
-    tolower() %>% # Convert to lower case
-    tm::removePunctuation() # remove punctuation
+answering_bodies$is_econ <- 0 
+answering_bodies$is_health_welf <- 0
 
-# Define dictionaries 
-# TODO: better define dictionaries
-# CANDO: define by ministry asked to? 
-
-econ_dict <- 
-  "econ*|inflat*|grow*|interest rate*|budget*|gdp|autumn statement*|financ*|chancellor"
-health_welf_dict <- " nhs |universal credit| covid |pandemic*"
-
-question_text <- question_text %>%
+answering_bodies <- answering_bodies %>%
   mutate(
-    is_econ = as.numeric(str_detect(question_text, econ_dict)), 
-    is_health_welf = as.numeric(str_detect(question_text, health_welf_dict))
+    is_econ = NA,
+    is_health_welf = NA
+  ) %>%
+  mutate(
+    is_econ = 
+      ifelse(
+        question_answering_body_id %in% c(211, 201, 24, 202, 214), 
+        1, 0
+      ),
+    is_health_welf = 
+      ifelse(
+        question_answering_body_id %in% c(17, 29), 
+        1, 0
+      )
   )
+
+dbWriteTable(db, "answering_bodies", answering_bodies)
 
  ``` 
 
-```{r}
-
-# Write out measured data to new table
-
-question_text <- question_text %>% select(-question_text)
-
-dbWriteTable(db, "question_topics", question_text, overwrite=TRUE)
-
-```
 
 ## Descriptive analysis 
 
@@ -1125,7 +1124,7 @@ analysis_df_econ <- dbGetQuery(
   db, 
   "
   SELECT 
-    question_topics.is_econ AS is_econ,
+    answering_bodies.is_econ AS is_econ,
 
     members.latest_party AS asking_MP_party,
     members.gender AS asking_MP_gender,
@@ -1143,8 +1142,8 @@ analysis_df_econ <- dbGetQuery(
     constituencies.median_house_price_hoclib23 
 
   FROM oral_questions
-  JOIN question_topics
-    ON oral_questions.question_id = question_topics.question_id
+  JOIN answering_bodies
+    ON oral_questions.question_answering_body_id = answering_bodies.question_answering_body_id
   JOIN members 
     ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
       AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
