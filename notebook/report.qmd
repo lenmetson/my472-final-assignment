@@ -254,28 +254,29 @@ Many MP characteristics change over time - such as the party they represent, the
 
 # This code can also be run by sourcing scripts/02_pull-oral-questions.R 
 
-# TODO Run 2023 from here 
-# TODO pull for ministers too, in case we want to add is.same.party 
 pull_members <- function(base_url, df) {
-  
-  for (i in seq_along(df$member_asking_Mnis_ID)) {
 
-    url <- paste0(base_url, "/", df$member_asking_Mnis_ID[i], "?detailsForDate=", df$question_tabled_when[i]) 
+  for (i in seq_along(df$member_id)) {
 
-    if (i == 1) {
+    url <- paste0( # Build request URL
+      base_url, "/",
+      df$member_id[i],
+      "?detailsForDate=",
+      df$question_tabled_when[i])
 
-      response <- GET(url) %>%
-        content("parsed")
-      response <- response[1]
-      response <- c(date = df$question_tabled_when[i], response[[1]])
+    if (i == 1) { # If 1st iteration, create response,
 
-      response <- list(response)
+      response <- httr::GET(url) %>% httr::content("parsed") # Pull request
+      response <- response[1] # Extract list with response
+      response <- c(
+        date = df$question_tabled_when[i], response[[1]]) # Merge with date
+      response <- list(response) # Convert to list
 
-    } else {
-      response_new <- GET(url) %>% content("parsed")
+    } else { #  else create response2, then merge
+      response_new <- httr::GET(url) %>% httr::content("parsed")
       response_new <- response_new[1]
-      response_new <- c(date = df$question_tabled_when[i], response_new[[1]])
-
+      response_new <- c(
+        date = df$question_tabled_when[i], response_new[[1]])
       response_new <- list(response_new)
 
       response <- c(response, response_new) # Merge responses
@@ -283,39 +284,43 @@ pull_members <- function(base_url, df) {
 
     Sys.sleep(1)
 
+    print(paste0("LOG Member Pull | ", Sys.time(), " | ", i, " of ", nrow(df), " done"))
   }
-  
   return(response)
 }
 
+# Query question table to get MP-date pairs
 
-# Query the question database for the date the question was tables and who asked it 
-members_asking <- dbGetQuery(db, 
+members_asking <- dbGetQuery(db,
   "
   SELECT 
     asking_member AS member_id, 
     question_tabled_when
   FROM oral_questions
-  "
-) 
+  ")
 
-
-ministers_answering <- dbGetQuery(db, 
+ministers_answering <- dbGetQuery(db,
   "
   SELECT 
     answering_member AS member_id, 
     question_tabled_when
   FROM oral_questions
-  ") 
+  ")
 
 q_parameters <- rbind(members_asking, ministers_answering)
-q_parameters <- unique(q_parameters) # Only keep unique MP-date pairs to avoid pulling the same information twice
+
+# Only keep unique MP-date pairs to avoid pulling the same information twice
+q_parameters <- unique(q_parameters)
 
 
 q_parameters <- q_parameters %>%
-  mutate(question_tabled_when = str_extract(question_tabled_when, ".+?(?=T)"))
+  mutate( # Change format of dates to just YYYY-MM-DD
+    question_tabled_when = str_extract(question_tabled_when, ".+?(?=T)"))
 
-members <- pull_members("https://members-api.parliament.uk/api/Members", q_parameters)
+# Apply function to pull members 
+members <- pull_members(
+  "https://members-api.parliament.uk/api/Members",
+  q_parameters)
 
 saveRDS(members, "data/members_raw.Rds")
 ```
