@@ -328,9 +328,12 @@ saveRDS(members, "data/members_raw.Rds")
 ```{r clean-members-pull}
 members <- readRDS("data/members_raw.Rds")
 
-
 # TODO run in quarto 
-members <-  lapply(members, function(lst) {lapply(lst, replace_null_with_na)})
+
+# Replace "null" values with NA so they are kept in the structure of the list
+members <-  lapply(
+  members, 
+  function(x) {lapply(x, replace_null_with_na)})
 
 for (i in seq_along(members)) {
 
@@ -354,17 +357,17 @@ for (i in seq_along(members)) {
 members_df <- members_df %>%
   select(
     member_date_valid = date, 
-    member_Mnis_ID = id, 
-    member_name_display = nameDisplayAs, 
-    member_latest_party = latestParty.id,
-    member_gender = gender, 
-    member_latest_constituency = latestHouseMembership.membershipFromId,
-    member_membership_start_date = latestHouseMembership.membershipStartDate, 
-    member_membership_end_date = latestHouseMembership.membershipEndDate,
-    member_membership_end_reason = latestHouseMembership.membershipEndReason,
-    member_name_full = nameFullTitle,
-    member_name_list = nameListAs
+    member_id = id, 
+    name_display = nameDisplayAs, 
+    latest_party = latestParty.id,
+    gender = gender, 
+    latest_constituency = latestHouseMembership.membershipFromId,
+    membership_start_date = latestHouseMembership.membershipStartDate, 
+    membership_end_date = latestHouseMembership.membershipEndDate,
+    membership_end_reason = latestHouseMembership.membershipEndReason
   )
+
+# TODO add positions here? 
 
 members_df <- members_df %>%
   group_by( # Group by all variables apart from date
@@ -383,7 +386,9 @@ members_df <- members_df %>%
     member_date_valid_min = min(member_date_valid), 
     member_date_valid_max = max(member_date_valid)
   )
+```
 
+```{r}
 dbWriteTable(db, "members", members_df, overwrite = TRUE)
 ```
 
@@ -468,6 +473,7 @@ pull_const_info <- function(cons_id) {
     return(basic_info)
 }
 
+# TODO remove progress bar
 pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
 
 
