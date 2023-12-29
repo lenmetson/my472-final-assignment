@@ -367,7 +367,10 @@ members_df <- members_df %>%
     membership_end_reason = latestHouseMembership.membershipEndReason
   )
 
-# TODO add positions here? 
+# TODO check whether I want to keep any other data
+
+# CANDO add positions here? 
+# CANDO add "policitcal interests" endpoint 
 
 members_df <- members_df %>%
   group_by( # Group by all variables apart from date
@@ -378,9 +381,7 @@ members_df <- members_df %>%
     member_latest_constituency,
     member_membership_start_date,
     member_membership_end_date,
-    member_membership_end_reason,
-    member_name_full,
-    member_name_list
+    member_membership_end_reason
   ) %>%
   summarize( # Summarise earliest date this is valid for and latest. This gives us a range of vlaues where this combination is duplicated 
     member_date_valid_min = min(member_date_valid), 
@@ -993,6 +994,8 @@ question_text$question_text <- question_text$question_text %>%
 
 # Define dictionaries 
 # TODO: better define dictionaries
+# CANDO: define by ministry asked to? 
+
 econ_dict <- 
   "econ*|inflat*|grow*|interest rate*|budget*|gdp|autumn statement*|financ*|chancellor"
 health_welf_dict <- " nhs |universal credit| covid |pandemic*"
