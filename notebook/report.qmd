@@ -590,6 +590,8 @@ saveRDS(constituencies, "data/constituencies_api_raw.Rds")
 
 # This code can also be run by sourcing scripts/04_selinium-scrape-HoC-dashboard.R 
 
+# NOTE cons_hoc returns 610 not 472 because it was pulled based on constituencies in all oral questions, not just 2023
+
 # Read in data from the constituency endpoint pull
 cons <- readRDS("data/constituencies_api_raw.Rds") 
 
@@ -821,8 +823,6 @@ saveRDS(cons, "data/hoc_library_scrape_raw.Rds")
 
 ```{r clean-constituency-data}
 
-# PICKUP here, then write out table and merge back branch?
-
 # Clean dashboard data
 
 cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
@@ -838,7 +838,6 @@ cons_hoc$area_hoclib23 <- cons_hoc$area_hoclib23 %>%
   str_extract(".*(?=\\s*sq\\.\\s*km)") %>%
   str_remove_all(",") %>%
   as.numeric()
-
 
 # age perc
 
@@ -869,18 +868,14 @@ cons_hoc$median_house_price_hoclib23 <- cons_hoc$median_house_price_hoclib23 %>%
   str_remove_all(",|£") %>%
   as.numeric()
 
-# read in data pulled from Parliament API 
+# Merge API and dashboard data 
 
 cons_api <- readRDS("data/constituencies_api_raw.Rds")
-
-# Merge 
-
 
 cons_hoc <- cons_hoc %>%
   select(-cons_name)
 
 cons <- left_join(cons_api, cons_hoc, by = "constituency_id")
-
 
 # Write out to database 
 

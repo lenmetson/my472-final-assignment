@@ -49,7 +49,7 @@ Many MP characteristics change over time - such as the party they represent, the
 
 I obtained more constituency information from the UK House of Commons Library Constituecy dashboard. This does not have an API, and contains dynamic elements, so I used Selinum to scrape it. 
 
-```{r selinium-code}
+```{r selenium-scrape-hoc-dashboard}
 
 ```
 
