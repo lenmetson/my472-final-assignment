@@ -2,11 +2,8 @@
 
 What, if any, characteristics and factors discriminate MPs who tend to ask questions about economic issues from MPs who tend to ask questions about health and welfare issues?”
 
-Particularly for backbench MPs - who do not hold Government or Shadow Government roles - parliamentary questions are a critical part of how MPs represent their constituents. 
+Parliamentary questions are a critical part of how MPs represent their constituents. Rather than the topic of the question, I operationalise asking questions by the ministers MPs ask questions to, rather than the content of the questions 
 
-CANDO: restrict to backbench only - can I do this with API?
-
-One important driver of MP behaviour is the constituency they represent. MPs are held accountable to their constituencies through elections. Therefore, this project seeks to explore how factors related to the constituencies that MPs represent predict whether they ask questions about the economy, or health and welfare issues. 
 
 
 
@@ -64,11 +61,26 @@ DIAGRAM OF FINAL RELATIONAL DATABASE
 
 ## Measure topics 
 
-To measure whether a question is about (1) economic issues or (2) health and welfare, I use a simple dictionary approach. Whilst this approach is somewhat limited compared to supervised machine learning classification techniques, I could not find a pre-trained model implementable in R. Therefore, for this version of the project, I use dictionary string matching. A full version of the project should, however, train a supervised classification model as this is likely to perform much better at classifying known topics than the dictionary approach. 
+Instead of using the text of the questions to classify them, I instead classified questions by the government department they were asked to. 
 
-I define questions about the economy as.. and questions about health and welfare as... 
+I define the following departments as "economic"
+- Treasury
+- Department for Levelling Up, Housing and Communities - 211
+- Department for Business, Energy and Industrial Strategy - 201
+- Public Accounts Commission - 24
+- Department for International Trade - 202
+- Department for Business and Trade - 214
 
-These categories are not mutally exlusive. In fact, we would expect many to overlap. For example, a question about how the NHS will be funded would fall under both economic and health. Therefore, I measure the two classes separately. 
+And the following departments as "health and welfare"
+-  Department of Health and Social Care - 17
+-  Department for Work and Pensions - 29
+
+
+
+One limitation to this approach is that is misses questions asked about either topic to more general departments like the Prime Minister's Office, Scotland and  Wales Officies, etc. Therefore, in future iterations of this project, it would be interesting to compare my operationalisation of asking questions with one based on the content of the text. This would be best measured using supervised classification of the question texts. 
+
+CHECK: should I mention dictionaries and say I tried??
+
 
 ## Descriptive analysis 
 
