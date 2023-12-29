@@ -1,31 +1,4 @@
-# Define function to install or load packages
-load_packages <- function(x) {
-  y <- x %in% rownames(installed.packages())
-  if(any(!y)) install.packages(x[!y])
-  invisible(lapply(x, library, character.only=T))
-  rm(x, y)
-}
-
-# Load required packagess
-load_packages(c(
-    "tidyverse",
-    "here",
-    "DBI",
-    "RSQLite",
-    "httr"
-    ))
-
-# Function defined by ChatGPT and adapted for the specific list structure here
-replace_null_with_na <- function(x) {
-  if (is.list(x)) { # Checks for whether the item is a sublist
-    lapply(x, replace_null_with_na) # if true, apply fun to each elements in sublist
-  } else { # If it isn't, simply apply the main function
-    ifelse(is.null(x) || x == "null", "NA", x) 
-  }
-}
-
-db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
-
+source("scripts/00_setup.R")
 
 MPs <- dbGetQuery(db,
   "
@@ -33,7 +6,7 @@ MPs <- dbGetQuery(db,
   FROM members 
   ")
 
-constituencies <- MPs$member_latest_constituency %>% 
+constituencies <- MPs$latest_constituency %>% 
   unique()
 
 constituencies <- 
@@ -85,25 +58,18 @@ constituencies <-
     shapefile = NA
     )
 
-
-### Basic details 
+### Pull basic details 
 
 pull_const_info <- function(cons_id) {
   url <- paste0(
     "https://members-api.parliament.uk/api/Location/Constituency/",
     cons_id)
 
-    basic_info <- httr::GET(url) |>
+    basic_info <- httr::GET(url) %>%
     httr::content("parsed")
 
     return(basic_info)
 }
-
-pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
-
-
-print(paste0(Sys.time(), " | BASIC INFO ..."))
-cat("\n")
 
 for(i in seq_along(constituencies$constituency_id)) {
   response <- pull_const_info(constituencies$constituency_id[i])
@@ -114,18 +80,14 @@ for(i in seq_along(constituencies$constituency_id)) {
   constituencies$cons_end_date[i] <- ifelse(is.null(response$endDate), NA, response$endDate)
 
   Sys.sleep(0.5)
-  setTxtProgressBar(pb, i)
+  print(paste0("LOG | Constituency API call - basic | ", Sys.time(), " | ", i, " of ", length(constituencies$constituency_id), " done"))
+
 }
 
 
-saveRDS(constituencies, "data/constituencies_raw_basic.Rds")
+print(paste0("LOG | Constituency API call - basic | ", Sys.time(), " | DONE "))
 
-print(paste0(Sys.time(), " | BASIC INFO done."))
-cat("\n")
-
-### Shape file
-
-# Define function
+### Pull shape file
 
 get_cons_shapefile <- function(cons_id) {
   url <- paste0(
@@ -133,18 +95,11 @@ get_cons_shapefile <- function(cons_id) {
     cons_id,
     "/Geometry")
 
-  shapefile <- httr::GET(url) |>
+  shapefile <- httr::GET(url) %>%
     httr::content("parsed")
 
   return(shapefile)
 }
-
-# Execute function
-pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
-
-
-print(paste0(Sys.time(), " | SHAPE FILES ..."))
-cat("\n")
 
 for(i in seq_along(constituencies$constituency_id)) {
   response <- get_cons_shapefile(constituencies$constituency_id[i])
@@ -153,16 +108,12 @@ for(i in seq_along(constituencies$constituency_id)) {
   constituencies$shapefile[i] <- response
 
   Sys.sleep(0.5)
-  setTxtProgressBar(pb, i)
+  print(paste0("LOG | Constituency API call - shapefile | ", Sys.time(), " | ", i, " of ", length(constituencies$constituency_id), " done"))
 }
 
-saveRDS(constituencies, "data/constituencies_raw_shapefiles.Rds")
+print(paste0("LOG | Constituency API call - shapefile | ", Sys.time(), " | DONE "))
 
-print(paste0(Sys.time(), " | SHAPE FILES done."))
-cat("\n")
-
-### Election results
-
+### Pull election results
 
 get_cons_election_results <- function(cons_id) {
   url <- paste0(
@@ -170,15 +121,11 @@ get_cons_election_results <- function(cons_id) {
     cons_id,
     "/ElectionResults")
 
-  results <- httr::GET(url) |>
+  results <- httr::GET(url) %>%
     httr::content("parsed")
 
   return(results)
 }
-
-
-print(paste0(Sys.time(), " | ELECTIONS ..."))
-cat("\n")
 
 for (i in seq_along(constituencies$constituency_id)) {
   response <- get_cons_election_results(constituencies$constituency_id[i])
@@ -244,14 +191,11 @@ for (i in seq_along(constituencies$constituency_id)) {
 
   Sys.sleep(0.5)
   
-  print(paste0(i, " of ", nrow(constituencies), " done."))
+  print(paste0("LOG | Constituency API call - elections | ", Sys.time(), " | ", i, " of ", length(constituencies$constituency_id), " done"))
 }
 
-print(paste0(Sys.time(), " | ELECTIONS done."))
-cat("\n")
+print(paste0("LOG | Constituency API call - elections | ", Sys.time(), " | DONE "))
 
 saveRDS(constituencies, "data/constituencies_raw.Rds")
 
-
-print(paste0(Sys.time(), " | All done! :)"))
-cat("\n")
+print(paste0("LOG | Constituency API call | ", Sys.time(), " | ALL DONE "))

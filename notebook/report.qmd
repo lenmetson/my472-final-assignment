@@ -325,9 +325,7 @@ saveRDS(members, "data/members_raw.Rds")
 
 ```{r clean-members-pull}
 # from here
-members <- readRDS("data/members_raw.Rds")
-
-# TODO run in quarto 
+members <- readRDS("data/members_raw.Rds") 
 
 # Replace "null" values with NA so they are kept in the structure of the list
 members <-  lapply(
@@ -359,57 +357,63 @@ members_df <- members_df %>%
     member_date_valid = date, 
     member_id = id, 
     name_display = nameDisplayAs, 
-    latest_party = latestParty.id,
     gender = gender, 
     latest_constituency = latestHouseMembership.membershipFromId,
     membership_start_date = latestHouseMembership.membershipStartDate, 
     membership_end_date = latestHouseMembership.membershipEndDate,
-    membership_end_reason = latestHouseMembership.membershipEndReason
+    membership_end_reason = latestHouseMembership.membershipEndReason,
+    latest_party_id = latestParty.id,
+    # Keep some party information 
+    latest_party_name = latestParty.name,
+    latest_party_ind = latestParty.isIndependentParty
   )
 
-# TODO check whether I want to keep any other data
-
-# CANDO add positions here? 
 # CANDO add "policitcal interests" endpoint 
 
+# Some MP characteristics change over time, so we collected unique MP-day queries. 
+# However, characteristics do not change daily so there is lots of repitition.
+# The following code groups MPs by the mutable variables (i.e. unique combinations, 
+# then summarises the earliest valid, and the latest valid date)
+# Before this function there are 4225 observations, and after, only 482.  
+
 members_df <- members_df %>%
-  group_by( # Group by all variables apart from date
-    member_Mnis_ID,
-    member_name_display,
-    member_latest_party,
-    member_gender,
-    member_latest_constituency,
-    member_membership_start_date,
-    member_membership_end_date,
-    member_membership_end_reason
+  group_by( # Group by all mutable variables apart from date
+    member_id, 
+    name_display,
+    gender, 
+    latest_constituency,
+    membership_start_date,
+    membership_end_date,  
+    latest_party_id
   ) %>%
   summarize( # Summarise earliest date this is valid for and latest. This gives us a range of vlaues where this combination is duplicated 
     member_date_valid_min = min(member_date_valid), 
     member_date_valid_max = max(member_date_valid)
   )
+
+# CHECK has this fixed reductions? If not, try extending the max date for the biggest remainign max to now, and the min to the start of the range? 
+
+# unique(members_df$member_id) %>% length() # This returns 474, indicating there are changes 
+
 ```
 
 ```{r}
+
 dbWriteTable(db, "members", members_df, overwrite = TRUE)
-```
-
-
-```{r}
-
-db_table_check(db, "members")
 
 ```
+
 
 ```{r pull-constituency-endpoints}
-# TODO add reference to source script, and check they are the same 
-# TODO re-run 
+# This code can also be run by sourcing scripts/03_pull-constituency-endpoints.R 
+
 MPs <- dbGetQuery(db,
   "
   SELECT * 
   FROM members 
   ")
 
-constituencies <- MPs$member_latest_constituency %>% 
+constituencies <- MPs$latest_constituency %>% 
   unique()
 
 constituencies <- 
@@ -461,8 +465,7 @@ constituencies <-
     shapefile = NA
     )
 
-
-### Basic details 
+### Pull basic details 
 
 pull_const_info <- function(cons_id) {
   url <- paste0(
@@ -475,13 +478,6 @@ pull_const_info <- function(cons_id) {
     return(basic_info)
 }
 
-# TODO remove progress bar
-pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
-
-
-print(paste0(Sys.time(), " | BASIC INFO ..."))
-cat("\n")
-
 for(i in seq_along(constituencies$constituency_id)) {
   response <- pull_const_info(constituencies$constituency_id[i])
   response <- response[[1]]
@@ -491,18 +487,14 @@ for(i in seq_along(constituencies$constituency_id)) {
   constituencies$cons_end_date[i] <- ifelse(is.null(response$endDate), NA, response$endDate)
 
   Sys.sleep(0.5)
-  setTxtProgressBar(pb, i)
+  print(paste0("LOG | Constituency API call - basic | ", Sys.time(), " | ", i, " of ", length(constituencies$constituency_id), " done"))
+
 }
 
 
-#saveRDS(constituencies, "data/constituencies_raw_basic.Rds")
+print(paste0("LOG | Constituency API call - basic | ", Sys.time(), " | DONE "))
 
-print(paste0(Sys.time(), " | BASIC INFO done."))
-cat("\n")
-
-### Shape file
-
-# Define function
+### Pull shape file
 
 get_cons_shapefile <- function(cons_id) {
   url <- paste0(
@@ -516,13 +508,6 @@ get_cons_shapefile <- function(cons_id) {
   return(shapefile)
 }
 
-# Execute function
-pb <- txtProgressBar(min = 0, max = length(constituencies$constituency_id), style = 3)
-
-
-print(paste0(Sys.time(), " | SHAPE FILES ..."))
-cat("\n")
-
 for(i in seq_along(constituencies$constituency_id)) {
   response <- get_cons_shapefile(constituencies$constituency_id[i])
   response <- response[[1]]
@@ -530,16 +515,12 @@ for(i in seq_along(constituencies$constituency_id)) {
   constituencies$shapefile[i] <- response
 
   Sys.sleep(0.5)
-  setTxtProgressBar(pb, i)
+  print(paste0("LOG | Constituency API call - shapefile | ", Sys.time(), " | ", i, " of ", length(constituencies$constituency_id), " done"))
 }
 
-saveRDS(constituencies, "data/constituencies_raw_shapefiles.Rds")
+print(paste0("LOG | Constituency API call - shapefile | ", Sys.time(), " | DONE "))
 
-print(paste0(Sys.time(), " | SHAPE FILES done."))
-cat("\n")
-
-### Election results
-
+### Pull election results
 
 get_cons_election_results <- function(cons_id) {
   url <- paste0(
@@ -552,10 +533,6 @@ get_cons_election_results <- function(cons_id) {
 
   return(results)
 }
-
-
-print(paste0(Sys.time(), " | ELECTIONS ..."))
-cat("\n")
 
 for (i in seq_along(constituencies$constituency_id)) {
   response <- get_cons_election_results(constituencies$constituency_id[i])
@@ -621,10 +598,14 @@ for (i in seq_along(constituencies$constituency_id)) {
 
   Sys.sleep(0.5)
   
-  print(paste0(i, " of ", nrow(constituencies), " done."))
+  print(paste0("LOG | Constituency API call - elections | ", Sys.time(), " | ", i, " of ", length(constituencies$constituency_id), " done"))
 }
 
+print(paste0("LOG | Constituency API call - elections | ", Sys.time(), " | DONE "))
+
 saveRDS(constituencies, "data/constituencies_raw.Rds")
+
+print(paste0("LOG | Constituency API call | ", Sys.time(), " | ALL DONE "))
 
 ```
 
@@ -1191,7 +1172,9 @@ replace_na_with_mean <- function(x) {
 # add average turnout measure 
 # add average registration rate (electorate/population) over last 4
 # add answering minister details (party, gender)
-# add matches dummies (same party, same gender) 
+# add matches dummies (same party, same gender)
+# add length of experience from membership start date 
+# add is.independent from members 
 
 analysis_df_econ <- dbGetQuery(
   db, 
