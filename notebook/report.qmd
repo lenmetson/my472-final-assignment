@@ -99,7 +99,7 @@ Tables:
 
 I then will create an additional table with the results of the measurmeent I use to classify questions. 
 
-4. question_topics 
+4. answering_bodies 
 
 
 ## Parliament API 
@@ -898,15 +898,6 @@ db_table_check(db, "constituencies")
 ## Measure topics 
 
 ```{r}
-question_text <- dbGetQuery(
-  db, 
-  "
-  SELECT question_id, question_text
-  FROM oral_questions
-  "
-) 
-
-# Measure 
 
 # TODO add measure by dept 
 
@@ -917,8 +908,8 @@ answering_bodies <- dbGetQuery(db,
   ") %>%
   unique()
 
-answering_bodies$is_econ <- 0 
-answering_bodies$is_health_welf <- 0
+answering_bodies$is_econ <- NA
+answering_bodies$is_health_welf <- NA
 
 answering_bodies <- answering_bodies %>%
   mutate(
@@ -938,7 +929,7 @@ answering_bodies <- answering_bodies %>%
       )
   )
 
-dbWriteTable(db, "answering_bodies", answering_bodies)
+dbWriteTable(db, "answering_bodies", answering_bodies, overwrite = TRUE)
 
  ``` 
 
@@ -955,15 +946,15 @@ time_data <- dbGetQuery(db,
   "
   SELECT 
     oral_questions.question_tabled_when AS date_asked,
-    SUM(question_topics.is_econ) AS econ_count,
-    SUM(question_topics.is_health_welf) AS health_welf_count, 
+    SUM(answering_bodies.is_econ) AS econ_count,
+    SUM(answering_bodies.is_health_welf) AS health_welf_count, 
     COUNT(*) AS total_question_count,
-    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
-    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop
+    SUM(answering_bodies.is_econ)/COUNT(*) AS econ_prop,
+    SUM(answering_bodies.is_health_welf)/COUNT(*) AS health_welf_prop
 
 
   FROM oral_questions
-    LEFT JOIN question_topics ON oral_questions.question_id = question_topics.question_id
+    LEFT JOIN answering_bodies ON oral_questions.question_answering_body_id = answering_bodies.question_answering_body_id
   
   GROUP BY 
     oral_questions.question_tabled_when
@@ -975,8 +966,8 @@ time_data$year <- format(time_data$date_asked, "%Y")
 
 plot <- time_data %>%
   ggplot(aes(x=date_asked)) +
-  geom_col(aes(y=econ_count)) + 
-  geom_smooth(aes(y=econ_count))
+  geom_col(aes(y=econ_prop)) + 
+  geom_col(aes(y=health_welf_prop), color = "red")
 
 plot
 
@@ -986,29 +977,29 @@ plot
 
 ```{r geog-plot, eval = TRUE}
 
-geog_data <- dbGetQuery(db, 
+geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number returned  
   "
   SELECT 
     constituencies.cons_name AS constituency, 
     
-    SUM(question_topics.is_econ) AS econ_count,
-    SUM(question_topics.is_health_welf) AS health_welf_count, 
+    SUM(answering_bodies.is_econ) AS econ_count,
+    SUM(answering_bodies.is_health_welf) AS health_welf_count, 
     COUNT(*) AS total_question_count,
-    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
-    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
+    SUM(answering_bodies.is_econ)/COUNT(*) AS econ_prop,
+    SUM(answering_bodies.is_health_welf)/COUNT(*) AS health_welf_prop,
     
     constituencies.shapefile AS con_shapefile
 
 
   FROM oral_questions
-    JOIN question_topics 
-      ON oral_questions.question_id = question_topics.question_id
+    JOIN answering_bodies 
+      ON oral_questions.question_answering_body_id = answering_bodies.question_answering_body_id
     JOIN members
-      ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
+      ON oral_questions.asking_member = members.member_id
         /* select row where date of question comes between the dates valid range */
         AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max 
     JOIN constituencies 
-      ON members.member_latest_constituency = constituencies.constituency_id
+      ON members.latest_constituency = constituencies.constituency_id
   
   GROUP BY constituencies.cons_name
   "
@@ -1017,8 +1008,6 @@ geog_data <- dbGetQuery(db,
 # Plot base map
 tm_shape(geog_data$con_shapefile) +
   tm_sf()
-
-
 
 ```
 
@@ -1107,7 +1096,7 @@ replace_na_with_mean <- function(x) {
 
 # Apply for econ
 
-# FIXME: check why filter BETWEEN reduces number returned 
+# FIXME same with the BETWEEN filter
 ## I think it might be because there are observations *after* the last change - work back somehow?? replace all max dates for an ID with the last Q??
 ## Also, I should do the "unique" thing with only display name (after column selection), as that seems to be the main source of change
 
@@ -1126,7 +1115,7 @@ analysis_df_econ <- dbGetQuery(
   SELECT 
     answering_bodies.is_econ AS is_econ,
 
-    members.latest_party AS asking_MP_party,
+    members.latest_party_id AS asking_MP_party,
     members.gender AS asking_MP_gender,
     constituencies.last_election_1_electorate,   
     constituencies.last_election_1_turnout,         
@@ -1145,10 +1134,10 @@ analysis_df_econ <- dbGetQuery(
   JOIN answering_bodies
     ON oral_questions.question_answering_body_id = answering_bodies.question_answering_body_id
   JOIN members 
-    ON oral_questions.member_asking_Mnis_ID = members.member_Mnis_ID
+    ON oral_questions.asking_member = members.member_id
       AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
   JOIN constituencies 
-    ON members.member_latest_constituency = constituencies.constituency_id
+    ON members.latest_constituency = constituencies.constituency_id
 
   "
 ) %>%
