@@ -244,6 +244,9 @@ question_df <- question_df %>%
 dbWriteTable(db, "oral_questions", question_df, overwrite = TRUE)
 ```
 
+```{r}
+db_table_check(db, "oral_questions")
+```
 
 Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked 
 
@@ -254,12 +257,6 @@ Many MP characteristics change over time - such as the party they represent, the
 # TODO Run 2023 from here 
 # TODO pull for ministers too, in case we want to add is.same.party 
 pull_members <- function(base_url, df) {
-
-  cat("\n")
-  print(paste0("Started at ", Sys.time()))
-  cat("\n")
-
-  pb <- txtProgressBar(min = 0, max = nrow(df), style = 3)
   
   for (i in seq_along(df$member_asking_Mnis_ID)) {
 
@@ -284,37 +281,50 @@ pull_members <- function(base_url, df) {
       response <- c(response, response_new) # Merge responses
     }
 
-    Sys.sleep(0.5)
-
-    setTxtProgressBar(pb, i) # TODO remove progress bar, replace with LOG
-
+    Sys.sleep(1)
 
   }
-
-  cat("\n")
-  print(paste0("Done at ", Sys.time(), " :))"))
   
   return(response)
 }
 
 
 # Query the question database for the date the question was tables and who asked it 
-questions <- dbGetQuery(db, 
+members_asking <- dbGetQuery(db, 
   "
-  SELECT member_asking_Mnis_ID, question_tabled_when
+  SELECT 
+    asking_member AS member_id, 
+    question_tabled_when
   FROM oral_questions
   "
-)
+) 
 
-questions <- unique(questions) # Avoid pulling the same queries by considering unique MP-date combinations
 
-questions <- questions %>%
+ministers_answering <- dbGetQuery(db, 
+  "
+  SELECT 
+    answering_member AS member_id, 
+    question_tabled_when
+  FROM oral_questions
+  ") 
+
+q_parameters <- rbind(members_asking, ministers_answering)
+q_parameters <- unique(q_parameters) # Only keep unique MP-date pairs to avoid pulling the same information twice
+
+
+q_parameters <- q_parameters %>%
   mutate(question_tabled_when = str_extract(question_tabled_when, ".+?(?=T)"))
 
-members <- pull_members("https://members-api.parliament.uk/api/Members", questions)
+members <- pull_members("https://members-api.parliament.uk/api/Members", q_parameters)
 
 saveRDS(members, "data/members_raw.Rds")
+```
 
+```{r clean-members-pull}
+members <- readRDS("data/members_raw.Rds")
+
+
+# TODO run in quarto 
 members <-  lapply(members, function(lst) {lapply(lst, replace_null_with_na)})
 
 for (i in seq_along(members)) {

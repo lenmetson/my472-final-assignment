@@ -1,156 +1,74 @@
-# Define function to install or load packages
-load_packages <- function(x) {
-  y <- x %in% rownames(installed.packages())
-  if(any(!y)) install.packages(x[!y])
-  invisible(lapply(x, library, character.only=T))
-  rm(x, y)
-}
+source("scripts/00_setup.R")
 
-# Load required packagess
-load_packages(c(
-    "tidyverse",
-    "here",
-    "DBI",
-    "RSQLite",
-    "httr"
-    ))
-
-# Function defined by ChatGPT and adapted for the specific list structure here
-replace_null_with_na <- function(x) {
-  if (is.list(x)) { # Checks for whether the item is a sublist 
-    lapply(x, replace_null_with_na) # if it is, apply the function for each of the elements within the sublist
-  } else { # If it isn't, simply apply the main function
-    ifelse(is.null(x) || x == "null", "NA", x) 
-  }
-}
+print(paste0("LOG Member Pull | ", Sys.time(), " | Starting"))
 
 pull_members <- function(base_url, df) {
 
-  cat("\n")
-  print(paste0("Started at ", Sys.time()))
-  cat("\n")
+  for (i in seq_along(df$member_id)) {
 
-  pb <- txtProgressBar(min = 0, max = nrow(df), style = 3)
-  
-  for (i in seq_along(df$member_asking_Mnis_ID)) {
+    url <- paste0( # Build request URL
+      base_url, "/",
+      df$member_id[i],
+      "?detailsForDate=",
+      df$question_tabled_when[i])
 
-    url <- paste0(base_url, "/", df$member_asking_Mnis_ID[i], "?detailsForDate=", df$question_tabled_when[i]) 
+    if (i == 1) { # If 1st iteration, create response,
 
-    if (i == 1) {
+      response <- httr::GET(url) %>% httr::content("parsed") # Pull request
+      response <- response[1] # Extract list with response
+      response <- c(
+        date = df$question_tabled_when[i], response[[1]]) # Merge with date
+      response <- list(response) # Convert to list
 
-      response <- GET(url) %>%
-        content("parsed")
-      response <- response[1]
-      response <- c(date = df$question_tabled_when[i], response[[1]])
-
-      response <- list(response)
-
-    } else {
-      response_new <- GET(url) %>% content("parsed")
+    } else { #  else create response2, then merge
+      response_new <- httr::GET(url) %>% httr::content("parsed")
       response_new <- response_new[1]
-      response_new <- c(date = df$question_tabled_when[i], response_new[[1]])
-
+      response_new <- c(
+        date = df$question_tabled_when[i], response_new[[1]])
       response_new <- list(response_new)
 
       response <- c(response, response_new) # Merge responses
     }
 
-    Sys.sleep(0.5)
+    Sys.sleep(1)
 
-    setTxtProgressBar(pb, i)
-
-
+    print(paste0("LOG Member Pull | ", Sys.time(), " | ", i, " of ", nrow(df), " done"))
   }
-
-  cat("\n")
-  print(paste0("Done at ", Sys.time(), " :))"))
-  
   return(response)
 }
 
-# Connect to database
+# Query question table to get MP-date pairs
 
-db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
-
-# Query the question database for the date the question was tables and who asked it 
-questions <- dbGetQuery(db, 
+members_asking <- dbGetQuery(db,
   "
-  SELECT member_asking_Mnis_ID, question_tabled_when
+  SELECT 
+    asking_member AS member_id, 
+    question_tabled_when
   FROM oral_questions
+  ")
+
+ministers_answering <- dbGetQuery(db,
   "
-)
+  SELECT 
+    answering_member AS member_id, 
+    question_tabled_when
+  FROM oral_questions
+  ")
 
-questions <- unique(questions) # Avoid pulling the same queries by considering unique MP-date combinations
+q_parameters <- rbind(members_asking, ministers_answering)
 
-questions <- questions %>%
-  mutate(question_tabled_when = str_extract(question_tabled_when, ".+?(?=T)"))
+# Only keep unique MP-date pairs to avoid pulling the same information twice
+q_parameters <- unique(q_parameters)
 
-members <- pull_members("https://members-api.parliament.uk/api/Members", questions)
+
+q_parameters <- q_parameters %>%
+  mutate( # Change format of dates to just YYYY-MM-DD
+    question_tabled_when = str_extract(question_tabled_when, ".+?(?=T)"))
+
+# Apply function to pull members 
+members <- pull_members(
+  "https://members-api.parliament.uk/api/Members",
+  q_parameters)
 
 saveRDS(members, "data/members_raw.Rds")
-
-members <- readRDS("data/members_raw.Rds")
-
-members <-  lapply(members, function(lst) {lapply(lst, replace_null_with_na)})
-
-pb <- txtProgressBar(min = 0, max = length(members), style = 3)
-
-for (i in seq_along(members)) {
-
-  if (i == 1) {
-
-    members_df <- members[i] %>%
-      unlist() %>%
-      t() %>%
-      data.frame()
-
-  } else {
-    members_df_new <- members[i] %>%
-      unlist() %>%
-      t() %>%
-      data.frame()
-
-    members_df <- rbind(members_df, members_df_new)
-  }
-  
-  setTxtProgressBar(pb, i)
-  
-}
-
-members_df <- members_df %>%
-  select(
-    member_date_valid = date, 
-    member_Mnis_ID = id, 
-    member_name_display = nameDisplayAs, 
-    member_latest_party = latestParty.id,
-    member_gender = gender, 
-    member_latest_constituency = latestHouseMembership.membershipFromId,
-    member_membership_start_date = latestHouseMembership.membershipStartDate, 
-    member_membership_end_date = latestHouseMembership.membershipEndDate,
-    member_membership_end_reason = latestHouseMembership.membershipEndReason,
-    member_name_full = nameFullTitle,
-    member_name_list = nameListAs
-  )
-
-members_df <- members_df %>%
-  group_by( # Group by all variables apart from date
-    member_Mnis_ID,
-    member_name_display,
-    member_latest_party,
-    member_gender,
-    member_latest_constituency,
-    member_membership_start_date,
-    member_membership_end_date,
-    member_membership_end_reason,
-    member_name_full,
-    member_name_list
-  ) %>%
-  summarize( # Summarise earliest date this is valid for and latest. This gives us a range of vlaues where this combination is duplicated 
-    member_date_valid_min = min(member_date_valid), 
-    member_date_valid_max = max(member_date_valid)
-  )
-
-dbWriteTable(db, "members", members_df, overwrite = TRUE)
-
-# Disconnect from local database
-DBI::dbDisconnect(db)
+print(paste0("LOG Member Pull | ", Sys.time(), " |  All done, file saved :)"))
