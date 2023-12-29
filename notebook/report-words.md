@@ -101,7 +101,7 @@ Missing values
 
 Only two columns have NAs. This is Scotish and Northern Irish constituncies where house prices and universial credit claimants were not avialble
 
-TODO try with removal?
+CANDO try with removal of NAs?
 
 `sapply(analysis_df_econ, function(x) any(is.na(x)))`
 
