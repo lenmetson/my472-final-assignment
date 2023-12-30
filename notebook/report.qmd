@@ -910,15 +910,6 @@ dbWriteTable(db, "parties", parties_df, overwrite = TRUE)
 
 ```
 
-```{r}
-dbListTables(db)
-db_table_check("oral_questions")
-db_table_check("members")
-db_table_check("constituencies")
-db_table_check("parties")
-```
-
-
 
 # Analysis 
 
@@ -970,6 +961,14 @@ dbWriteTable(db, "question_topics", question_text, overwrite = TRUE)
 
  ``` 
 
+```{r check-tables}
+dbListTables(db)
+db_table_check("oral_questions")
+db_table_check("members")
+db_table_check("constituencies")
+db_table_check("parties")
+db_table_check("question_topics")
+```
 
 ## Descriptive analysis 
 
@@ -1021,8 +1020,7 @@ time_econ <- time_data %>%
 
 # Health and welfare 
 
-time_health <- time_data_by_party %>% 
-  filter(party_name == "Conservative" | party_name == "Labour") %>%
+time_health <- time_data %>% 
     ggplot(aes(x=date_asked, y = health_welf_count)) +
 
     geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
@@ -1111,7 +1109,7 @@ grid.arrange(time_party_health, time_party_econ, nrow = 1)
 
 ### Party 
 
-```{r}
+```{r party-plots, eval = TRUE}
 party_data <- dbGetQuery(db, 
   "
   SELECT 
@@ -1168,10 +1166,6 @@ grid.arrange(party_econ, party_health)
 ### Geography
 
 ```{r geog-plot, eval = TRUE}
-
-db_table_check(db, "constituencies")
-db_table_check(db, "members")
-db_table_check(db, "question_topics")
 
 geog_data <- dbGetQuery(db,
   "
