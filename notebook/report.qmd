@@ -184,7 +184,7 @@ saveRDS(oral_questions, "data/oral_questions_2023.RDS")
 ```
 
 
-```{r clean-oral-questions, eval = TRUE}
+```{r clean-oral-questions}
 
 oral_questions <- readRDS("data/oral_questions_2023.RDS")
 
@@ -311,7 +311,8 @@ saveRDS(members, "data/members_raw.Rds")
 ```
 
 ```{r clean-members-pull}
-# from here
+
+
 members <- readRDS("data/members_raw.Rds") 
 
 # Replace "null" values with NA so they are kept in the structure of the list
@@ -320,23 +321,18 @@ members <-  lapply(
   function(x) {lapply(x, replace_null_with_na)})
 
 for (i in seq_along(members)) {
-
     if (i == 1) { 
-
       members_df <- members[i] %>%
         unlist() %>%
         t() %>%
         data.frame()
-
     } else {
       members_df_new <- members[i] %>%
         unlist() %>%
         t() %>%
         data.frame()
-
       members_df <- rbind(members_df, members_df_new)
     }
-
 }
 
 members_df <- members_df %>%
@@ -346,13 +342,7 @@ members_df <- members_df %>%
     name_display = nameDisplayAs, 
     gender = gender, 
     latest_constituency = latestHouseMembership.membershipFromId,
-    membership_start_date = latestHouseMembership.membershipStartDate, 
-    membership_end_date = latestHouseMembership.membershipEndDate,
-    membership_end_reason = latestHouseMembership.membershipEndReason,
-    latest_party_id = latestParty.id,
-    # Keep some party information 
-    latest_party_name = latestParty.name,
-    latest_party_ind = latestParty.isIndependentParty
+    latest_party_id = latestParty.id
   )
 
 # CANDO add "policitcal interests" endpoint 
@@ -361,24 +351,23 @@ members_df <- members_df %>%
 # However, characteristics do not change daily so there is lots of repitition.
 # The following code groups MPs by the mutable variables (i.e. unique combinations, 
 # then summarises the earliest valid, and the latest valid date)
-# Before this function there are 4225 observations, and after, only 482.  
+# Before this function there are 4225 observations, and after, only 414.  
 
-members_df <- members_df %>%
-  group_by( # Group by all mutable variables apart from date
+members_df_grouped <- members_df %>%
+  group_by( # Group by all variables apart from date
     member_id, 
-    name_display,
+    name_display, 
     gender, 
     latest_constituency,
-    membership_start_date,
-    membership_end_date,  
     latest_party_id
   ) %>%
   summarize( # Summarise earliest date this is valid for and latest. This gives us a range of vlaues where this combination is duplicated 
     member_date_valid_min = min(member_date_valid), 
     member_date_valid_max = max(member_date_valid)
-  )
+  ) 
 
 # CHECK has this fixed reductions? If not, try extending the max date for the biggest remainign max to now, and the min to the start of the range? 
+
 
 # unique(members_df$member_id) %>% length() # This returns 474, indicating there are changes 
 
@@ -927,7 +916,7 @@ db_table_check(db, "parties")
 
 ## Measure topics 
 
-```{r}
+```{r measure-topics}
 
 question_text <- dbGetQuery(db, 
   "
@@ -975,6 +964,8 @@ dbWriteTable(db, "question_topics", question_text, overwrite = TRUE)
 
 
 ## Descriptive analysis 
+
+CANDO simply add a plot showing who asked the most questions in 2023
 
 ### Time 
 
@@ -1173,7 +1164,7 @@ grid.arrange(party_econ, party_health)
 
 ```{r geog-plot, eval = TRUE}
 
-geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number returned  
+geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number returned  # Maybe this is exactly what it is SUPPOSED to do?! Like maybe the extra rows are duplicates?? - no because there are no duplicates 
   "
   SELECT 
     constituencies.cons_name AS constituency, 
@@ -1192,7 +1183,7 @@ geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number ret
       ON oral_questions.question_id = question_topics.question_id
     JOIN members
       ON oral_questions.asking_member = members.member_id
-        /* select row where date of question comes between the dates valid range */
+        /* select row where date of question comes between the dates valid range  */
         AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max 
     JOIN constituencies 
       ON members.latest_constituency = constituencies.constituency_id
@@ -1204,6 +1195,9 @@ geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number ret
   GROUP BY constituencies.cons_name
   "
   )
+
+
+
 
 # NOTE: approach to converting from GeoJSON from chatGPT
 
@@ -1223,7 +1217,7 @@ econ_map <- tm_shape(geog_data) +
     legend.hist = TRUE,
     palette = "Blues" 
   ) +
-  tm_layout(legend.outside = TRUE)
+  tm_layout(legend.outside = TRUE) # BUG legend not moving outside 
 
 # Plot Health 
 
@@ -1236,7 +1230,7 @@ health_map <- tm_shape(geog_data) +
     palette = "Reds" 
   ) +
  tm_layout(
-  legend.outside = TRUE)
+  legend.outside = TRUE) # BUG legend not moving outside 
 
 tmap_arrange(econ_map, health_map)
 
@@ -1329,7 +1323,6 @@ replace_na_with_mean <- function(x) {
 
 # FIXME same with the BETWEEN filter
 ## I think it might be because there are observations *after* the last change - work back somehow?? replace all max dates for an ID with the last Q??
-## Also, I should do the "unique" thing with only display name (after column selection), as that seems to be the main source of change
 
 # TODO: add DVs 
 # seat marginality measure - average majority in last four elections, count of party wins
@@ -1358,7 +1351,7 @@ analysis_df_econ <- dbGetQuery(
     ON oral_questions.question_id = question_topics.question_id
   JOIN members 
     ON oral_questions.asking_member = members.member_id
-      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max /* FIXME this filter is broken */
+      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max 
   JOIN constituencies 
     ON members.latest_constituency = constituencies.constituency_id
   JOIN parties ON members.latest_party_id = parties.party_id
@@ -1408,7 +1401,7 @@ analysis_df_econ <- dbGetQuery(
     ON oral_questions.question_id = question_topics.question_id
   JOIN members 
     ON oral_questions.asking_member = members.member_id
-      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max /* FIXME this filter is broken */
+      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max 
   JOIN constituencies 
     ON members.latest_constituency = constituencies.constituency_id
 
