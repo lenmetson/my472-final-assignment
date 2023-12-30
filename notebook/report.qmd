@@ -1383,6 +1383,8 @@ tmap_arrange(econ_map, health_map)
 ```{r define-forest-functions}
 
 
+dir.create("data/random-forest-outputs")
+
 # Function for mean imputation
 
 replace_na_with_mean <- function(x) {
@@ -1595,6 +1597,8 @@ apply_random_forest(
   tuning_levels = 4,
   cores = parallel::detectCores())
 
+
+# TODO see if forests work and repeat for health_welf
 ```
 
 ```{r}

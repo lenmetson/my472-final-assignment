@@ -2,6 +2,8 @@ source("scripts/00_setup.R")
 
 # Function for mean imputation
 
+dir.create("data/random-forest-outputs")
+
 replace_na_with_mean <- function(x) {
   mean_value <- mean(x, na.rm = TRUE)
   ifelse(is.na(x), mean_value, x)
