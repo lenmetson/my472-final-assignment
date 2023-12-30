@@ -902,13 +902,30 @@ answering_bodies <- dbGetQuery(db,
   "
   SELECT question_answering_body, question_answering_body_id
   FROM oral_questions
-  ") %>%
-  unique()
+  "
+) 
 
-answering_bodies$is_econ <- NA
-answering_bodies$is_health_welf <- NA
+# Measure 
 
-answering_bodies <- answering_bodies %>%
+# Initalise variables as NA
+question_text$is_econ <- NA
+question_text$is_health_welf <- NA
+
+# clean question text 
+
+question_text$question_text <- question_text$question_text %>%
+    tolower() %>% # Convert to lower case
+    tm::removePunctuation() # remove punctuation
+
+# Define dictionaries 
+# TODO: better define dictionaries
+# CANDO: define by ministry asked to? 
+
+econ_dict <- 
+  "econ*|inflat*|grow*|interest rate*|budget*|gdp|autumn statement*|financ*|chancellor"
+health_welf_dict <- " nhs |universal credit| covid |pandemic*"
+
+question_text <- question_text %>%
   mutate(
     is_econ = NA,
     is_health_welf = NA
