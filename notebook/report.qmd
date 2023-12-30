@@ -1208,33 +1208,17 @@ geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number ret
 # PICKUP 
 # NOTE: approach to converting from GeoJSON from chatGPT
 
-convert_geojson_to_shapefile <- function(geojson_string, output_path) {
-  geojson_data <- st_read(geojson_string, quiet = TRUE)
-  st_write(geojson_data, dsn = output_path)
-}
+temp_geojson <- tempfile(fileext = ".geojson") # Create a temporary file
+writeLines(geog_data$con_shapefile, con = temp_geojson) # Write out to temporary file
+geog_sf <- st_read(dsn = temp_geojson) # Read the GeoJSON file into an sf object
+unlink(temp_geojson) # Delete temporary file
 
-#unlink("data/shpfiles",recursive = TRUE) # delete directory 
-dir.create("data/shpfiles")
+# Now you can use tm_shape with the converted sf object
+tm_shape(geog_sf) +
+  tm_borders()  # You can customize the map layers as needed
 
-geog_data$geometry <- NA
+# Clean up: Delete the temporary GeoJSON file
 
-# Loop through the DataFrame and convert each GeoJSON string to a shapefile
-for (i in 1:nrow(geog_data)) {
-  geojson_string <- geog_data$con_shapefile[i]
-  output_path <- paste0("data/shpfiles/shapefile_", geog_data$constituency[i], ".shp")
-  
-  convert_geojson_to_shapefile(geojson_string, output_path)
-
-  shapefile_data <- st_read(output_path)
-  geog_data$geometry[i] <- shapefile_data[1,2]
-  
-}
-
-geog_sf$geometry
-
-geo_sf <- st_sfc(lapply(geog_data$geometry, st_multipolygon))
-geo_sf <- st_sfc(geog_data$geometry)
-geo_sf <- st_union(geog_data$geometry[1:5])
 
 tm_shape(geog_data$geometry) +
   tm_borders() 
