@@ -1205,7 +1205,6 @@ geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number ret
   "
   )
 
-# PICKUP 
 # NOTE: approach to converting from GeoJSON from chatGPT
 
 temp_geojson <- tempfile(fileext = ".geojson") # Create a temporary file
@@ -1214,10 +1213,32 @@ geog_sf <- st_read(dsn = temp_geojson) # Read the GeoJSON file into an sf object
 unlink(temp_geojson) # Delete temporary file
 
 geog_data <- cbind(geog_data, geog_sf)
+geog_data <- st_as_sf(geog_data) # Convert to SF
+
+# Plot Econ
+econ_map <- tm_shape(geog_data) +
+  tm_sf(
+    col = "econ_prop",
+    title = "Proportion of oral questions about Economic Issues",
+    legend.hist = TRUE,
+    palette = "Blues" 
+  ) +
+  tm_layout(legend.outside = TRUE)
+
+# Plot Health 
 
 # Plot base map
-tm_shape(geog_data$geometry) + # FIXME map not working 
-  tm_borders()
+health_map <- tm_shape(geog_data) +
+  tm_sf(
+    col = "health_welf_prop",
+    title = "Proportion of oral questions about Economic Issues",
+    legend.hist = TRUE,
+    palette = "Reds" 
+  ) +
+ tm_layout(
+  legend.outside = TRUE)
+
+tmap_arrange(econ_map, health_map)
 
 ```
 
