@@ -887,12 +887,14 @@ for (i in 1:length(parties)) {
     parties_df <- data.frame(
       party_id = c(parties[[i]]$value$id),
       party_name = c(parties[[i]]$value$name),
+      party_abbreviation = c(parties[[i]]$value$abbreviation),
       party_colour = c(parties[[i]]$value$backgroundColour)
     )
   } else {
     parties_df2 <- data.frame(
       party_id = c(parties[[i]]$value$id),
       party_name = c(parties[[i]]$value$name),
+      party_abbreviation = c(parties[[i]]$value$abbreviation),
       party_colour = c(parties[[i]]$value$backgroundColour)
     )
     
@@ -904,6 +906,7 @@ parties_df <- parties_df %>%
   mutate(
     party_id = as.character(party_id),
     party_name = as.character(party_name), 
+    party_abbreviation = as.character(party_abbreviation),
     party_colour = as.character(party_colour))
 
 dbWriteTable(db, "parties", parties_df, overwrite = TRUE)
@@ -939,9 +942,36 @@ question_text$question_text <- question_text$question_text %>%
 # Define dictionaries 
 # TODO: better define dictionaries
 
-econ_dict <- 
-  "econ*|inflat*|grow*|interest rate*|budget*|gdp|autumn statement*|financ*|chancellor"
-health_welf_dict <- " nhs |universal credit| covid |pandemic*"
+
+econ_dict <- c(
+  "econom* ",
+  "inflation",
+  "grow* ", 
+  "interest rate* ", 
+  "budget", 
+  "gdp", 
+  "autumn statement", 
+  "chancellor", 
+  "treasury"
+)
+
+econ_dict <- paste(econ_dict, collapse="|")
+
+health_welf_dict <- c(
+  "health* ", 
+  "welfare", 
+  " nhs ",
+  "universal credit",
+  "benefit payments* ", 
+  "benefit recipients* ",
+  "covid ", 
+  "pandemic", 
+  "doctor", 
+  "nurse" ,
+  "dentist"
+)
+
+health_welf_dict <- paste(health_welf_dict, collapse="|")
 
 question_text <- question_text %>%
   mutate(
@@ -956,6 +986,9 @@ question_text <- question_text %>%
       ifelse(
         str_detect(question_text, health_welf_dict), 1, 0)
   )
+
+mean(question_text$is_econ)
+mean(question_text$is_health_welf)
 
 dbWriteTable(db, "question_topics", question_text, overwrite = TRUE)
 
@@ -973,6 +1006,75 @@ db_table_check("question_topics")
 ## Descriptive analysis 
 
 CANDO simply add a plot showing who asked the most questions in 2023
+
+```{r members}
+
+member_qs <- dbGetQuery(db, 
+  "
+  SELECT 
+    members.name_display AS MP,
+    parties.party_colour AS party_col,
+
+    SUM(question_topics.is_econ) AS econ_count,
+    SUM(question_topics.is_health_welf) AS health_welf_count, 
+    COUNT(*) AS total_question_count,
+    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
+    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop
+
+  FROM oral_questions
+    JOIN question_topics ON oral_questions.question_id = question_topics.question_id
+
+    LEFT JOIN members ON oral_questions.asking_member = members.member_id
+    /* this has to be joined before anything */ 
+    /* from members to avoid dropping rows */
+    /* select row where date of question comes between the dates valid range */
+
+    AND REPLACE(oral_questions.question_tabled_when, '-', '') 
+    /* no date class in SQLite, so convert to string*/
+    
+      BETWEEN REPLACE(members.member_date_valid_min, '-', '') 
+        AND REPLACE(members.member_date_valid_max, '-', '')
+    
+    LEFT JOIN parties ON parties.party_id = members.latest_party_id
+
+    WHERE 
+      parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
+
+  GROUP BY members.member_id
+  ")
+
+
+members_econ <- member_qs %>%
+  filter(econ_prop > 0) %>%
+  arrange(-econ_prop) %>%
+  slice_head(n = 20) %>%
+  ggplot(aes(x = reorder(MP, econ_prop), y = econ_prop)) +
+  geom_bar(aes(fill = paste0("#", party_col)), stat = "identity", color = "black", alpha = 0.7) +
+  coord_flip() +
+  scale_fill_identity() +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"),
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+members_health <- member_qs %>%
+  filter(health_welf_prop > 0) %>%
+  arrange(-health_welf_prop) %>%
+  slice_head(n = 20) %>%
+  ggplot(aes(x = reorder(MP, health_welf_prop), y = health_welf_prop)) +
+  geom_bar(aes(fill = paste0("#", party_col)), stat = "identity", color = "black", alpha = 0.7) +
+  coord_flip() +
+  scale_fill_identity() +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"),
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+```
 
 ### Time 
 
@@ -1280,6 +1382,14 @@ tmap_arrange(econ_map, health_map)
 
 ```{r define-forest-functions}
 
+
+# Function for mean imputation
+
+replace_na_with_mean <- function(x) {
+  mean_value <- mean(x, na.rm = TRUE)
+  ifelse(is.na(x), mean_value, x)
+}
+
 apply_random_forest <- function(
   df, 
   dv_name = "",
@@ -1345,40 +1455,66 @@ apply_random_forest <- function(
   print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Final output done :)" ))
   }
 
-# Function for mean imputation
 
-replace_na_with_mean <- function(x) {
-  mean_value <- mean(x, na.rm = TRUE)
-  ifelse(is.na(x), mean_value, x)
-}
 
 
 ```
 
+```{r}
+db_table_check("members")
+db_table_check("oral_questions")
+db_table_check("constituencies")
+db_table_check("question_topics")
+db_table_check("parties")
+
+```
 ```{r econ-tree}
 
 # Apply for econ
-
-# TODO: add DVs 
-# seat marginality measure - average majority in last four elections, count of party wins
-# add average turnout measure 
-# add average registration rate (electorate/population) over last 4
-# add answering minister details (party, gender)
-# add matches dummies (same party, same gender)
-# add length of experience from membership start date 
-# add is.independent from members 
-
-db_table_check(db, "members")
-db_table_check(db, "oral_questions")
-db_table_check(db, "constituencies")
-db_table_check(db, "question_topics")
 
 analysis_df_econ <- dbGetQuery(
   db, 
   "
   SELECT 
     question_topics.is_econ AS is_econ,
-    constituencies.median_house_price_hoclib23 AS house_price
+    
+    members.latest_party_id AS asking_MP_party,
+    parties.party_abbreviation AS party_abbreviation, 
+    members.gender AS asking_MP_gender,
+    /* Majority */ 
+    constituencies.last_election_1_majority, 
+    constituencies.last_election_2_majority, 
+    constituencies.last_election_3_majority, 
+    constituencies.last_election_4_majority,
+
+    constituencies.last_election_1_electorate,
+    constituencies.last_election_2_electorate,
+    constituencies.last_election_3_electorate,
+    constituencies.last_election_4_electorate,
+
+    /* results */    
+    constituencies.last_election_1_result,
+    constituencies.last_election_2_result,
+    constituencies.last_election_3_result,
+    constituencies.last_election_4_result,
+    /* turnout */ 
+    constituencies.last_election_1_turnout,
+    constituencies.last_election_2_turnout,
+    constituencies.last_election_3_turnout,
+    constituencies.last_election_4_turnout,
+   /* registration rates */ 
+    constituencies.last_election_1_electorate/constituencies.population_hoclib23 AS con_registration_rate_1,
+    constituencies.last_election_2_electorate/constituencies.population_hoclib23 AS con_registration_rate_2,
+    constituencies.last_election_3_electorate/constituencies.population_hoclib23 AS con_registration_rate_3,
+    constituencies.last_election_4_electorate/constituencies.population_hoclib23 AS con_registration_rate_4,
+    /* constituency demographics */ 
+    constituencies.region_nation_hoclib23 AS con_region,
+    constituencies.population_hoclib23/constituencies.area_hoclib23 AS con_ppl_per_sqkm,
+    constituencies.age_0_29_hoclib23 AS con_0_29_prop,
+    constituencies.age_30_64_hoclib23 AS con_30_64_prop,
+    constituencies.age_65_plus_hoclib23 AS con_65_plus_prop,
+    constituencies.uc_claimants_hoclib23 AS con_uc_claimants,
+    constituencies.median_house_price_hoclib23 AS con_house_price
 
 
   FROM oral_questions
@@ -1400,73 +1536,54 @@ analysis_df_econ <- dbGetQuery(
   LEFT JOIN parties ON parties.party_id = members.latest_party_id
   
   WHERE 
-    parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party') 
-    
-    /* TODO decide whether to filter by party, or by England and Wales, or keep all in */
+    parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
   "
-  )
+  )  
+
+# Convert majority variables into +/- depending on whether current MP won or lost  
+analysis_df_econ <- analysis_df_econ %>%
+  mutate(
+    last_election_1_majority = 
+      ifelse(str_detect(last_election_1_result, party_abbreviation), 
+        last_election_1_majority, 
+        last_election_1_majority * -1),
+    last_election_2_majority = 
+      ifelse(str_detect(last_election_2_result, party_abbreviation), 
+        last_election_2_majority, 
+        last_election_2_majority * -1),
+    last_election_3_majority = 
+      ifelse(str_detect(last_election_3_result, party_abbreviation), 
+        last_election_3_majority, 
+        last_election_3_majority * -1),
+    last_election_4_majority = 
+      ifelse(str_detect(last_election_4_result, party_abbreviation), 
+        last_election_4_majority, 
+        last_election_4_majority * -1)
+  ) %>% 
+  mutate(
+    marginality_1 =(analysis_df_econ$last_election_1_majority/analysis_df_econ$last_election_1_electorate),
+    marginality_2 =(analysis_df_econ$last_election_2_majority/analysis_df_econ$last_election_2_electorate),
+    marginality_3 =(analysis_df_econ$last_election_3_majority/analysis_df_econ$last_election_3_electorate),
+    marginality_4 =(analysis_df_econ$last_election_4_majority/analysis_df_econ$last_election_4_electorate), 
+  ) %>%
+  mutate(
+    is_econ = factor(is_econ, levels = c(0,1), labels = c(FALSE, TRUE))) %>%
+  select(-party_abbreviation)
 
 
-analysis_df_econ <- dbGetQuery(
-  db, 
-  "
-  SELECT 
-    question_topics.is_econ AS is_econ, /* DV */
-    
-    /* IVs */ 
+# CANDO average election results
 
-    members.latest_party_id AS asking_MP_party,
-    members.gender AS asking_MP_gender,
-
-    /* Majority */ 
-    constituencies.last_election_1_majority, 
-    constituencies.last_election_2_majority, 
-    constituencies.last_election_3_majority, 
-    constituencies.last_election_4_majority,
-
-    /* turnout */ 
-    constituencies.last_election_1_turnout,
-    constituencies.last_election_2_turnout,
-    constituencies.last_election_3_turnout,
-    constituencies.last_election_4_turnout,
-
-   /* registration rates */ 
-    constituencies.last_election_1_electorate/population_hoclib23,
-    constituencies.last_election_2_electorate/population_hoclib23,
-    constituencies.last_election_3_electorate/population_hoclib23,
-    constituencies.last_election_4_electorate/population_hoclib23
-
-   /* minister answering for matches dummies */   # TODO work out how to do this from one table .. hmm
-
-   /* registration rates */ 
-
-
-  FROM oral_questions
-  JOIN question_topics
-    ON oral_questions.question_id = question_topics.question_id
-  JOIN members 
-    ON oral_questions.asking_member = members.member_id
-      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max 
-  JOIN constituencies 
-    ON members.latest_constituency = constituencies.constituency_id
-
-  "
-) %>%
-  mutate(is_econ = factor(
-    is_econ, levels = c(0,1), labels = c(FALSE, TRUE))) 
-
-# TODO: take averages outside of SQL
-## TODO: multiply majority by whether it's their majority or not 
-# TODO: measure "matches" averages outside of SQL
+# TODO decide whether to filter by party, or by England and Wales, or keep all in
 
 # CANDO: should I just exclude and focus on English and Welsh MPs?
 
 # Check which columns are missing
-#sapply(analysis_df_econ, function(x) any(is.na(x)))
+sapply(analysis_df_econ, function(x) any(is.na(x)))
 
 # Apply the function to columns with NA
-analysis_df_econ$median_house_price_hoclib23 <- replace_na_with_mean(analysis_df_econ$median_house_price_hoclib23)
-analysis_df_econ$uc_claimants_hoclib23 <- replace_na_with_mean(analysis_df_econ$uc_claimants_hoclib23)
+analysis_df_econ$con_house_price <- 
+  replace_na_with_mean(analysis_df_econ$con_house_price)
+
 
 apply_random_forest(
   df = analysis_df_econ,
