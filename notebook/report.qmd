@@ -1206,8 +1206,36 @@ geog_data <- dbGetQuery(db,
   "
   )
 
+# Add all constituencies as base map
 
+# To plot the base map, we want all constituencies, not just ones where questions have been asked.
+# We can get this from OSMaps
+# For reproducibility, the following code downloads and processes the data programmatically
+# To download manually, use https://osdatahub.os.uk/downloads/open/BoundaryLine
 
+options(timeout=600) # Takes some time to download so we need to increase the "timeout" setting
+
+dir.create("data/shpfile_allUK")
+download.file("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", "data/shpfile_allUK/OS_zip.zip") #
+options(timeout=60) # Reset timeout
+
+# unzip 
+unzip(
+  "data/shpfile_allUK/OS_zip.zip", 
+  files = c(
+    "Data/GB/westminster_const_region.prj",
+    "Data/GB/westminster_const_region.shp",
+    "Data/GB/westminster_const_region.dbf",
+    "Data/GB/westminster_const_region.shxmv",
+    "Data/GB/westminster_const_region.*"),
+  exdir = "data/shpfile_allUK", 
+  overwrite = TRUE)
+
+#file.remove("data/shpfile_allUK/OS_zip.zip")
+
+basemap_sf <- st_read(dsn = "data/shpfile_allUK/Data/GB/westminster_const_region.shp") # FIXME base map shape files
+
+# Make shape files for constituencies in the database
 
 # NOTE: approach to converting from GeoJSON from chatGPT
 
