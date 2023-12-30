@@ -384,9 +384,6 @@ members_df_grouped <- members_df %>%
     member_date_valid_max = as.character(member_date_valid_max)
   )
 
-# CHECK has this fixed reductions? If not, try extending the max date for the biggest remainign max to now, and the min to the start of the range? 
-
-
 # unique(members_df$member_id) %>% length() # This returns 474, indicating there are changes 
 
 ```
@@ -1008,12 +1005,9 @@ time_data <- dbGetQuery(db,
     SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
     SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop
     
-
-
   FROM oral_questions
     JOIN question_topics ON oral_questions.question_id = question_topics.question_id
 
-  
   GROUP BY 
     oral_questions.question_tabled_when
   ")
@@ -1188,7 +1182,11 @@ grid.arrange(party_econ, party_health)
 
 ```{r geog-plot, eval = TRUE}
 
-geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number returned  # Maybe this is exactly what it is SUPPOSED to do?! Like maybe the extra rows are duplicates?? - no because there are no duplicates 
+db_table_check(db, "constituencies")
+db_table_check(db, "members")
+db_table_check(db, "question_topics")
+
+geog_data <- dbGetQuery(db,
   "
   SELECT 
     constituencies.cons_name AS constituency, 
@@ -1203,15 +1201,22 @@ geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number ret
 
 
   FROM oral_questions
-    JOIN question_topics 
-      ON oral_questions.question_id = question_topics.question_id
-    JOIN members
-      ON oral_questions.asking_member = members.member_id
-        /* select row where date of question comes between the dates valid range  */
-        AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max 
-    JOIN constituencies 
-      ON members.latest_constituency = constituencies.constituency_id
-    JOIN parties ON members.latest_party_id = parties.party_id
+
+  LEFT JOIN members ON oral_questions.asking_member = members.member_id
+    /* this has to be joined before anything */ 
+    /* from members to avoid dropping rows */
+    /* select row where date of question comes between the dates valid range */
+
+    AND REPLACE(oral_questions.question_tabled_when, '-', '') 
+    /* no date class in SQLite, so convert to string*/
+    
+      BETWEEN REPLACE(members.member_date_valid_min, '-', '') 
+        AND REPLACE(members.member_date_valid_max, '-', '')
+
+  LEFT JOIN parties ON members.latest_party_id = parties.party_id
+  LEFT JOIN constituencies ON members.latest_constituency = constituencies.constituency_id
+
+  LEFT JOIN question_topics ON oral_questions.question_id = question_topics.question_id
 
   WHERE 
     parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
@@ -1345,9 +1350,6 @@ replace_na_with_mean <- function(x) {
 
 # Apply for econ
 
-# FIXME same with the BETWEEN filter
-## I think it might be because there are observations *after* the last change - work back somehow?? replace all max dates for an ID with the last Q??
-
 # TODO: add DVs 
 # seat marginality measure - average majority in last four elections, count of party wins
 # add average turnout measure 
@@ -1371,17 +1373,27 @@ analysis_df_econ <- dbGetQuery(
 
 
   FROM oral_questions
-  JOIN question_topics
-    ON oral_questions.question_id = question_topics.question_id
-  JOIN members 
-    ON oral_questions.asking_member = members.member_id
-      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max 
-  JOIN constituencies 
-    ON members.latest_constituency = constituencies.constituency_id
-  JOIN parties ON members.latest_party_id = parties.party_id
+  
+  JOIN question_topics ON oral_questions.question_id = question_topics.question_id
+  
+  LEFT JOIN members ON oral_questions.asking_member = members.member_id
+    /* this has to be joined before anything */ 
+    /* from members to avoid dropping rows */
+    /* select row where date of question comes between the dates valid range */
 
+    AND REPLACE(oral_questions.question_tabled_when, '-', '') 
+    /* no date class in SQLite, so convert to string*/
+    
+      BETWEEN REPLACE(members.member_date_valid_min, '-', '') 
+        AND REPLACE(members.member_date_valid_max, '-', '')
+  
+  LEFT JOIN constituencies ON members.latest_constituency = constituencies.constituency_id
+  LEFT JOIN parties ON parties.party_id = members.latest_party_id
+  
   WHERE 
-    parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party') /* TODO decide whether to filter by party, or by England and Wales, or keep all in */
+    parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party') 
+    
+    /* TODO decide whether to filter by party, or by England and Wales, or keep all in */
   "
   )
 
