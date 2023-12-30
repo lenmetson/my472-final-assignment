@@ -61,26 +61,7 @@ DIAGRAM OF FINAL RELATIONAL DATABASE
 
 ## Measure topics 
 
-Instead of using the text of the questions to classify them, I instead classified questions by the government department they were asked to. 
-
-I define the following departments as "economic"
-- Treasury
-- Department for Levelling Up, Housing and Communities - 211
-- Department for Business, Energy and Industrial Strategy - 201
-- Public Accounts Commission - 24
-- Department for International Trade - 202
-- Department for Business and Trade - 214
-
-And the following departments as "health and welfare"
--  Department of Health and Social Care - 17
--  Department for Work and Pensions - 29
-
-
-
-One limitation to this approach is that is misses questions asked about either topic to more general departments like the Prime Minister's Office, Scotland and  Wales Officies, etc. Therefore, in future iterations of this project, it would be interesting to compare my operationalisation of asking questions with one based on the content of the text. This would be best measured using supervised classification of the question texts. 
-
-CHECK: should I mention dictionaries and say I tried??
-
+Dictionaries 
 
 ## Descriptive analysis 
 

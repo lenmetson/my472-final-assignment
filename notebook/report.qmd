@@ -18,6 +18,8 @@ knitr::opts_chunk$set(
 
 ```{r basic-setup, eval = TRUE}
 
+# Can also be run by sourcing scripts/00_setup.R
+
 # Define function to install or load packages
 load_packages <- function(x) {
   y <- x %in% rownames(installed.packages())
@@ -99,7 +101,7 @@ Tables:
 
 I then will create an additional table with the results of the measurmeent I use to classify questions. 
 
-4. answering_bodies 
+4. question_topics 
 
 
 ## Parliament API 
@@ -898,12 +900,12 @@ db_table_check(db, "constituencies")
 
 # TODO add measure by dept 
 
-answering_bodies <- dbGetQuery(db, 
+question_text <- dbGetQuery(db, 
   "
-  SELECT question_answering_body, question_answering_body_id
+  SELECT question_id, question_text
   FROM oral_questions
   "
-) 
+)
 
 # Measure 
 
@@ -919,7 +921,6 @@ question_text$question_text <- question_text$question_text %>%
 
 # Define dictionaries 
 # TODO: better define dictionaries
-# CANDO: define by ministry asked to? 
 
 econ_dict <- 
   "econ*|inflat*|grow*|interest rate*|budget*|gdp|autumn statement*|financ*|chancellor"
@@ -933,17 +934,13 @@ question_text <- question_text %>%
   mutate(
     is_econ = 
       ifelse(
-        question_answering_body_id %in% c(211, 201, 24, 202, 214), 
-        1, 0
-      ),
+        str_detect(question_text, econ_dict), 1, 0),
     is_health_welf = 
       ifelse(
-        question_answering_body_id %in% c(17, 29), 
-        1, 0
-      )
+        str_detect(question_text, health_welf_dict), 1, 0)
   )
 
-dbWriteTable(db, "answering_bodies", answering_bodies, overwrite = TRUE)
+dbWriteTable(db, "question_topics", question_text, overwrite = TRUE)
 
  ``` 
 
@@ -960,15 +957,15 @@ time_data <- dbGetQuery(db,
   "
   SELECT 
     oral_questions.question_tabled_when AS date_asked,
-    SUM(answering_bodies.is_econ) AS econ_count,
-    SUM(answering_bodies.is_health_welf) AS health_welf_count, 
+    SUM(question_topics.is_econ) AS econ_count,
+    SUM(question_topics.is_health_welf) AS health_welf_count, 
     COUNT(*) AS total_question_count,
-    SUM(answering_bodies.is_econ)/COUNT(*) AS econ_prop,
-    SUM(answering_bodies.is_health_welf)/COUNT(*) AS health_welf_prop
+    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
+    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop
 
 
   FROM oral_questions
-    LEFT JOIN answering_bodies ON oral_questions.question_answering_body_id = answering_bodies.question_answering_body_id
+    LEFT JOIN question_topics ON oral_questions.question_id = question_topics.question_id
   
   GROUP BY 
     oral_questions.question_tabled_when
@@ -987,6 +984,29 @@ plot
 
 ```
 
+### Party 
+
+```{r}
+party_data <- dbGetQuery(db, 
+  "
+  SELECT 
+    members.latest_party_id,
+
+    SUM(question_topics.is_econ) AS econ_count,
+    SUM(question_topics.is_health_welf) AS health_welf_count, 
+    COUNT(*) AS total_question_count,
+    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
+    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop 
+
+    FROM oral_questions 
+      LEFT JOIN question_topics ON oral_questions.question_id = question_topics.question_id
+      LEFT JOIN members ON oral_questions.asking_member = members.member_id
+
+    GROUP BY members.latest_party_id
+
+  ")
+```
+
 ### Geography
 
 ```{r geog-plot, eval = TRUE}
@@ -996,18 +1016,18 @@ geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number ret
   SELECT 
     constituencies.cons_name AS constituency, 
     
-    SUM(answering_bodies.is_econ) AS econ_count,
-    SUM(answering_bodies.is_health_welf) AS health_welf_count, 
+    SUM(question_topics.is_econ) AS econ_count,
+    SUM(question_topics.is_health_welf) AS health_welf_count, 
     COUNT(*) AS total_question_count,
-    SUM(answering_bodies.is_econ)/COUNT(*) AS econ_prop,
-    SUM(answering_bodies.is_health_welf)/COUNT(*) AS health_welf_prop,
+    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
+    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
     
     constituencies.shapefile AS con_shapefile
 
 
   FROM oral_questions
-    JOIN answering_bodies 
-      ON oral_questions.question_answering_body_id = answering_bodies.question_answering_body_id
+    JOIN question_topics 
+      ON oral_questions.question_id = question_topics.question_id
     JOIN members
       ON oral_questions.asking_member = members.member_id
         /* select row where date of question comes between the dates valid range */
@@ -1126,13 +1146,13 @@ replace_na_with_mean <- function(x) {
 db_table_check(db, "members")
 db_table_check(db, "oral_questions")
 db_table_check(db, "constituencies")
-db_table_check(db, "answering_bodies")
+db_table_check(db, "question_topics")
 
 analysis_df_econ <- dbGetQuery(
   db, 
   "
   SELECT 
-    answering_bodies.is_econ AS is_econ, /* DV */
+    question_topics.is_econ AS is_econ, /* DV */
     
     /* IVs */ 
 
@@ -1163,8 +1183,8 @@ analysis_df_econ <- dbGetQuery(
 
 
   FROM oral_questions
-  JOIN answering_bodies
-    ON oral_questions.question_answering_body_id = answering_bodies.question_answering_body_id
+  JOIN question_topics
+    ON oral_questions.question_id = question_topics.question_id
   JOIN members 
     ON oral_questions.asking_member = members.member_id
       AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max /* FIXME this filter is broken */
