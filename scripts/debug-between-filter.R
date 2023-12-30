@@ -26,15 +26,15 @@ filtered2 <- dbGetQuery(db,
 
   FROM oral_questions
 
-  JOIN members ON oral_questions.asking_member = members.member_id
-
-    /* select row where date of question comes between the dates valid range  */
-
+  LEFT JOIN members ON oral_questions.asking_member = members.member_id
+    /* this has to be joined before anything */ 
+    /* from members to avoid dropping rows */
+    /* select row where date of question comes between the dates valid range */
     AND REPLACE(oral_questions.question_tabled_when, '-', '') /* no date class in SQLite, so convert to string*/
       BETWEEN REPLACE(members.member_date_valid_min, '-', '') 
         AND REPLACE(members.member_date_valid_max, '-', '')
 
-  JOIN parties ON members.latest_party_id = parties.party_id
+  LEFT JOIN parties ON members.latest_party_id = parties.party_id
 
     "
   )
