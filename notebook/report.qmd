@@ -68,6 +68,7 @@ db_table_check <- function(database, table){
   cols_n <- length(cols)
   
   result = list(
+    table = table,
     n_rows = rows[[1]],
     n_cols = cols_n,
     col_names = cols)
@@ -236,10 +237,6 @@ question_df <- question_df %>%
 
 ```{r}
 dbWriteTable(db, "oral_questions", question_df, overwrite = TRUE)
-```
-
-```{r}
-db_table_check(db, "oral_questions")
 ```
 
 Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked 

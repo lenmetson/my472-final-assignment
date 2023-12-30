@@ -46,6 +46,7 @@ db_table_check <- function(database, table){
   cols_n <- length(cols)
   
   result = list(
+    table = table,
     n_rows = rows[[1]],
     n_cols = cols_n,
     col_names = cols)
