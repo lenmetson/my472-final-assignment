@@ -21,7 +21,7 @@ load_packages(c(
     # Geospatial plots
     "tmap", 
     "sf", 
-    "ggrepel", 
+    "ggrepel",
     # Random forests
     "parallel",
     "ranger",
