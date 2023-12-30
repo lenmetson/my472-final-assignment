@@ -15,7 +15,7 @@ dates <- dbGetQuery(db,
 
 # NOTE No date format in SQlite https://stackoverflow.com/questions/4428795/sqlite-convert-string-to-date
 
-filtered <- dbGetQuery(db,
+filtered2 <- dbGetQuery(db,
   "
   SELECT 
     oral_questions.question_id,
@@ -26,15 +26,15 @@ filtered <- dbGetQuery(db,
 
   FROM oral_questions
 
-  LEFT JOIN members ON oral_questions.asking_member = members.member_id
+  JOIN members ON oral_questions.asking_member = members.member_id
 
     /* select row where date of question comes between the dates valid range  */
 
     AND REPLACE(oral_questions.question_tabled_when, '-', '') /* no date class in SQLite, so convert to string*/
       BETWEEN REPLACE(members.member_date_valid_min, '-', '') 
         AND REPLACE(members.member_date_valid_max, '-', '')
-        
-  LEFT JOIN parties ON members.latest_party_id = parties.party_id
+
+  JOIN parties ON members.latest_party_id = parties.party_id
 
     "
   )
