@@ -220,7 +220,17 @@ question_df <- question_df %>%
     question_answering_when = AnsweringWhen,
     question_answering_body = AnsweringBody,
     question_answering_body_id = AnsweringBodyId,
-    answering_member = AnsweringMinisterId)
+    answering_member = AnsweringMinisterId) %>%
+  # Ensure variables are the correct class 
+  mutate(
+    question_id = as.character(question_id),
+    question_text = as.character(question_text),
+    asking_member = as.character(asking_member),
+    question_tabled_when = as.character(as.Date(question_tabled_when)),
+    question_answering_when = as.character(as.Date(question_answering_when)),
+    question_answering_body = as.character(question_answering_body),
+    question_answering_body_id = as.character(question_answering_body_id),
+    answering_member = as.character(answering_member))
 
 ```
 
@@ -320,6 +330,7 @@ members <-  lapply(
   members, 
   function(x) {lapply(x, replace_null_with_na)})
 
+# Convert to dataframe
 for (i in seq_along(members)) {
     if (i == 1) { 
       members_df <- members[i] %>%
@@ -345,13 +356,11 @@ members_df <- members_df %>%
     latest_party_id = latestParty.id
   )
 
-# CANDO add "policitcal interests" endpoint 
-
 # Some MP characteristics change over time, so we collected unique MP-day queries. 
 # However, characteristics do not change daily so there is lots of repitition.
 # The following code groups MPs by the mutable variables (i.e. unique combinations, 
 # then summarises the earliest valid, and the latest valid date)
-# Before this function there are 4225 observations, and after, only 414.  
+# Before this function there are 4225 observations, and after, only 479.  
 
 members_df_grouped <- members_df %>%
   group_by( # Group by all variables apart from date
@@ -364,7 +373,16 @@ members_df_grouped <- members_df %>%
   summarize( # Summarise earliest date this is valid for and latest. This gives us a range of vlaues where this combination is duplicated 
     member_date_valid_min = min(member_date_valid), 
     member_date_valid_max = max(member_date_valid)
-  ) 
+  ) %>%
+  mutate(
+    member_id = as.character(member_id), 
+    name_display = as.character(name_display), 
+    gender = as.character(gender), 
+    latest_constituency = as.character(latest_constituency),
+    latest_party_id = as.character(latest_party_id), 
+    member_date_valid_min = as.character(member_date_valid_min), 
+    member_date_valid_max = as.character(member_date_valid_max)
+  )
 
 # CHECK has this fixed reductions? If not, try extending the max date for the biggest remainign max to now, and the min to the start of the range? 
 
@@ -375,7 +393,7 @@ members_df_grouped <- members_df %>%
 
 ```{r}
 
-dbWriteTable(db, "members", members_df, overwrite = TRUE)
+dbWriteTable(db, "members", members_df_grouped, overwrite = TRUE)
 
 ```
 
@@ -897,6 +915,12 @@ for (i in 1:length(parties)) {
     parties_df <- rbind(parties_df, parties_df2)
   }
 }
+
+parties_df <- parties_df %>%
+  mutate(
+    party_id = as.character(party_id),
+    party_name = as.character(party_name), 
+    party_colour = as.character(party_colour))
 
 dbWriteTable(db, "parties", parties_df, overwrite = TRUE)
 
