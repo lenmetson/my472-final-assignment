@@ -882,12 +882,42 @@ dbWriteTable(db, "constituencies", cons, overwrite = TRUE)
 
 ```
 
+```{r pull-party-info}
+
+response <- httr::GET("https://members-api.parliament.uk/api/Parties/GetActive/1") %>%
+  httr::content("parsed")
+
+parties <- response$items
+parties <- replace_null_with_na(parties)
+
+for (i in 1:length(parties)) {
+  if (i == 1) {
+    parties_df <- data.frame(
+      party_id = c(parties[[i]]$value$id),
+      party_name = c(parties[[i]]$value$name),
+      party_colour = c(parties[[i]]$value$backgroundColour)
+    )
+  } else {
+    parties_df2 <- data.frame(
+      party_id = c(parties[[i]]$value$id),
+      party_name = c(parties[[i]]$value$name),
+      party_colour = c(parties[[i]]$value$backgroundColour)
+    )
+    
+    parties_df <- rbind(parties_df, parties_df2)
+  }
+}
+
+dbWriteTable(db, "parties", parties_df, overwrite = TRUE)
+
+```
 
 ```{r}
 dbListTables(db)
 db_table_check(db, "oral_questions")
 db_table_check(db, "members")
 db_table_check(db, "constituencies")
+db_table_check(db, "parties")
 ```
 
 
