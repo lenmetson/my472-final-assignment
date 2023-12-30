@@ -63,14 +63,24 @@ DIAGRAM OF FINAL RELATIONAL DATABASE
 
 Dictionaries 
 
+
+
 ## Descriptive analysis 
 
 Having measured question topics, I first plot how they vary over time and across the UK. 
+
+I focus on the 4 main UK-wide parties 
 
 ### Over time 
 
 - Plot 
 - Short anlaysis 
+
+
+### By Party
+
+Because there is an unequal distribution of questions based on the number of seats a party has, I use the proportion of questions asked. This is a measure of how *focused* a party is on either economic or health and welfare topics. 
+
 
 
 ### Over constituency 

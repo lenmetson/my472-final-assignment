@@ -50,7 +50,8 @@ load_packages(c(
     "tidymodels",
     "vip", 
     "rpart", 
-    "rpart.plot"
+    "rpart.plot", 
+    "gridExtra"
     ))
 
 replace_null_with_na <- function(x) {
@@ -928,8 +929,6 @@ db_table_check(db, "parties")
 
 ```{r}
 
-# TODO add measure by dept 
-
 question_text <- dbGetQuery(db, 
   "
   SELECT question_id, question_text
@@ -987,31 +986,131 @@ time_data <- dbGetQuery(db,
   "
   SELECT 
     oral_questions.question_tabled_when AS date_asked,
+
     SUM(question_topics.is_econ) AS econ_count,
     SUM(question_topics.is_health_welf) AS health_welf_count, 
     COUNT(*) AS total_question_count,
     SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
     SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop
+    
 
 
   FROM oral_questions
-    LEFT JOIN question_topics ON oral_questions.question_id = question_topics.question_id
+    JOIN question_topics ON oral_questions.question_id = question_topics.question_id
+
   
   GROUP BY 
     oral_questions.question_tabled_when
   ")
 
+# Econ 
 
 time_data$date_asked <- as.Date(time_data$date_asked)
-time_data$year <- format(time_data$date_asked, "%Y") 
 
-plot <- time_data %>% # TODO make time plot work, or plot by party 
-  ggplot(aes(x=date_asked)) +
-  geom_col(aes(y=econ_prop)) + 
-  geom_col(aes(y=health_welf_prop), color = "red")
+time_econ <- time_data %>%
+    ggplot(aes(x=date_asked, y = econ_count)) +
+    
+    geom_vline(xintercept = as.Date("2023-03-15"), colour= "red", alpha = 0.15, size = 2.5) + # Spring budget
+    geom_vline(xintercept = as.Date("2023-11-22"), colour= "red", alpha = 0.15, size = 2.5) + # Autumn statement
+    geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
 
-plot
+    geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
+    geom_col(size=2) +
+    
+    theme(
+      panel.background = element_rect(fill = "white", color = "black"),
+      panel.grid = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+  )
 
+# Health and welfare 
+
+time_health <- time_data_by_party %>% 
+  filter(party_name == "Conservative" | party_name == "Labour") %>%
+    ggplot(aes(x=date_asked, y = health_welf_count)) +
+
+    geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
+    
+    geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
+    geom_col(size=2) +
+    
+    theme(
+      panel.background = element_rect(fill = "white", color = "black"),
+      panel.grid = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+grid.arrange(time_econ, time_health, nrow = 1)
+
+```
+
+```{r time-plot-by-party, eval = TRUE}
+
+time_data_by_party <- dbGetQuery(db, 
+  "
+  SELECT 
+    oral_questions.question_tabled_when AS date_asked,
+    parties.party_name, 
+
+    SUM(question_topics.is_econ) AS econ_count,
+    SUM(question_topics.is_health_welf) AS health_welf_count, 
+    COUNT(*) AS total_question_count,
+    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
+    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop
+    
+  FROM oral_questions
+    JOIN question_topics ON oral_questions.question_id = question_topics.question_id
+    JOIN members ON oral_questions.asking_member = members.member_id
+    JOIN parties ON members.latest_party_id = parties.party_id
+
+  WHERE 
+    parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
+  
+  GROUP BY 
+    oral_questions.question_tabled_when, parties.party_name
+  ")
+
+time_data_by_party$date_asked <- as.Date(time_data_by_party$date_asked)
+
+# Econ 
+
+time_party_econ <- time_data_by_party %>% 
+  #filter(party_name == "Conservative" | party_name == "Labour") %>%
+    ggplot(aes(x=date_asked, y = econ_count)) +
+    
+    geom_vline(xintercept = as.Date("2023-03-15"), colour= "red", alpha = 0.15, size = 2.5) + # Spring budget
+    geom_vline(xintercept = as.Date("2023-11-22"), colour= "red", alpha = 0.15, size = 2.5) + # Autumn statement
+    geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
+    
+    geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
+    geom_col(size=2) +
+    
+    facet_wrap(~party_name, ncol=1) +
+    theme(
+      panel.background = element_rect(fill = "white", color = "black"),
+      panel.grid = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# Health and welfare 
+
+time_party_health <- time_data_by_party %>% 
+  #filter(party_name == "Conservative" | party_name == "Labour") %>%
+    ggplot(aes(x=date_asked, y = health_welf_count)) +
+
+    geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
+    
+    geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
+    geom_col(size=2) +
+    
+    facet_wrap(~party_name, ncol=1) +
+    theme(
+      panel.background = element_rect(fill = "white", color = "black"),
+      panel.grid = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+grid.arrange(time_party_health, time_party_econ, nrow = 1)
 ```
 
 ### Party 
@@ -1020,21 +1119,54 @@ plot
 party_data <- dbGetQuery(db, 
   "
   SELECT 
-    members.latest_party_id,
+    parties.party_name,
 
     SUM(question_topics.is_econ) AS econ_count,
     SUM(question_topics.is_health_welf) AS health_welf_count, 
     COUNT(*) AS total_question_count,
     SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
-    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop 
+    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
+
+    parties.party_colour 
 
     FROM oral_questions 
-      LEFT JOIN question_topics ON oral_questions.question_id = question_topics.question_id
-      LEFT JOIN members ON oral_questions.asking_member = members.member_id
-
-    GROUP BY members.latest_party_id
-
+      JOIN question_topics ON oral_questions.question_id = question_topics.question_id
+      JOIN members ON oral_questions.asking_member = members.member_id
+      JOIN parties ON members.latest_party_id = parties.party_id
+    
+    WHERE 
+      parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
+    
+    GROUP BY parties.party_name
   ")
+
+party_data$party_colour <- paste0("#", party_data$party_colour)
+
+# Econ 
+party_econ <- party_data %>%
+  ggplot() +
+  geom_bar(aes(x=reorder(party_name, -econ_prop), y=econ_prop, fill=party_colour), stat = "identity", color = "black") +
+  scale_fill_identity() +
+  labs(title = "Proportion of questions on Economic issues by party", x = "", y="Proportion of questions classified as 'economic'") +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"),
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+# Health and welfare
+party_health <- party_data %>%
+  ggplot() +
+  geom_bar(aes(x=reorder(party_name, -health_welf_prop), y=health_welf_prop, fill=party_colour), stat = "identity", color = "black") +
+  scale_fill_identity() +
+  labs(title = "Proportion of questions on Health and Welfare issues by party", x = "", y="Proportion of questions classified as 'health and welfare'") +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"),
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+grid.arrange(party_econ, party_health)
 ```
 
 ### Geography
@@ -1064,6 +1196,10 @@ geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number ret
         AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max 
     JOIN constituencies 
       ON members.latest_constituency = constituencies.constituency_id
+    JOIN parties ON members.latest_party_id = parties.party_id
+
+  WHERE 
+    parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
   
   GROUP BY constituencies.cons_name
   "
@@ -1177,6 +1313,30 @@ db_table_check(db, "members")
 db_table_check(db, "oral_questions")
 db_table_check(db, "constituencies")
 db_table_check(db, "question_topics")
+
+analysis_df_econ <- dbGetQuery(
+  db, 
+  "
+  SELECT 
+    question_topics.is_econ AS is_econ,
+    constituencies.median_house_price_hoclib23 AS house_price
+
+
+  FROM oral_questions
+  JOIN question_topics
+    ON oral_questions.question_id = question_topics.question_id
+  JOIN members 
+    ON oral_questions.asking_member = members.member_id
+      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max /* FIXME this filter is broken */
+  JOIN constituencies 
+    ON members.latest_constituency = constituencies.constituency_id
+  JOIN parties ON members.latest_party_id = parties.party_id
+
+  WHERE 
+    parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party') /* TODO decide whether to filter by party, or by England and Wales, or keep all in */
+  "
+  )
+
 
 analysis_df_econ <- dbGetQuery(
   db, 

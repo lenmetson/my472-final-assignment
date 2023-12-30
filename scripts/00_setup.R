@@ -28,7 +28,8 @@ load_packages(c(
     "tidymodels",
     "vip", 
     "rpart", 
-    "rpart.plot"
+    "rpart.plot",
+    "gridExtra"
     ))
 
 replace_null_with_na <- function(x) {
