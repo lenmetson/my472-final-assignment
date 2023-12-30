@@ -40,19 +40,16 @@ replace_null_with_na <- function(x) {
   }
 }
 
-db_table_check <- function(database, table){
-  rows <- dbGetQuery(database, paste0("SELECT COUNT(1) FROM ", table))
-  cols <- dbListFields(database, table)
-  cols_n <- length(cols)
+db_table_check <- function(table){
+  rows <- dbGetQuery(db, paste0("SELECT COUNT(1) FROM ", table))
+  cols <- dbListFields(db, table)
   
   result = list(
     table = table,
     n_rows = rows[[1]],
-    n_cols = cols_n,
     col_names = cols)
   return(result)
 }
-
 
 db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 print(paste0("LOG | ", Sys.time(), " | Setup done."))

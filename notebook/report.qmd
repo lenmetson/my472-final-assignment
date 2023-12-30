@@ -62,19 +62,16 @@ replace_null_with_na <- function(x) {
   }
 }
 
-db_table_check <- function(database, table){
-  rows <- dbGetQuery(database, paste0("SELECT COUNT(1) FROM ", table))
-  cols <- dbListFields(database, table)
-  cols_n <- length(cols)
+db_table_check <- function(table){
+  rows <- dbGetQuery(db, paste0("SELECT COUNT(1) FROM ", table))
+  cols <- dbListFields(db, table)
   
   result = list(
     table = table,
     n_rows = rows[[1]],
-    n_cols = cols_n,
     col_names = cols)
   return(result)
 }
-
 
 db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
@@ -233,9 +230,6 @@ question_df <- question_df %>%
     question_answering_body_id = as.character(question_answering_body_id),
     answering_member = as.character(answering_member))
 
-```
-
-```{r}
 dbWriteTable(db, "oral_questions", question_df, overwrite = TRUE)
 ```
 
@@ -382,10 +376,6 @@ members_df_grouped <- members_df %>%
   )
 
 # unique(members_df$member_id) %>% length() # This returns 474, indicating there are changes 
-
-```
-
-```{r}
 
 dbWriteTable(db, "members", members_df_grouped, overwrite = TRUE)
 
@@ -922,10 +912,10 @@ dbWriteTable(db, "parties", parties_df, overwrite = TRUE)
 
 ```{r}
 dbListTables(db)
-db_table_check(db, "oral_questions")
-db_table_check(db, "members")
-db_table_check(db, "constituencies")
-db_table_check(db, "parties")
+db_table_check("oral_questions")
+db_table_check("members")
+db_table_check("constituencies")
+db_table_check("parties")
 ```
 
 
