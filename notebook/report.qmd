@@ -1213,20 +1213,11 @@ writeLines(geog_data$con_shapefile, con = temp_geojson) # Write out to temporary
 geog_sf <- st_read(dsn = temp_geojson) # Read the GeoJSON file into an sf object
 unlink(temp_geojson) # Delete temporary file
 
-# Now you can use tm_shape with the converted sf object
-tm_shape(geog_sf) +
-  tm_borders()  # You can customize the map layers as needed
-
-# Clean up: Delete the temporary GeoJSON file
-
-
-tm_shape(geog_data$geometry) +
-  tm_borders() 
-
+geog_data <- cbind(geog_data, geog_sf)
 
 # Plot base map
-tm_shape(geog_data$con_shapefile) + # FIXME map not working 
-  tm_sf()
+tm_shape(geog_data$geometry) + # FIXME map not working 
+  tm_borders()
 
 ```
 
