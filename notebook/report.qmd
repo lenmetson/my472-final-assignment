@@ -581,9 +581,6 @@ for (i in seq_along(constituencies$constituency_id)) {
 }
 
 saveRDS(constituencies, "data/constituencies_api_raw.Rds")
-
-# CHECK 03 pull worked 
-
 ```
 
 ```{r selenium-scrape-hoc-dashboard}
@@ -964,7 +961,7 @@ time_data <- dbGetQuery(db,
 time_data$date_asked <- as.Date(time_data$date_asked)
 time_data$year <- format(time_data$date_asked, "%Y") 
 
-plot <- time_data %>%
+plot <- time_data %>% # TODO make time plot work, or plot by party 
   ggplot(aes(x=date_asked)) +
   geom_col(aes(y=econ_prop)) + 
   geom_col(aes(y=health_welf_prop), color = "red")
@@ -1006,7 +1003,7 @@ geog_data <- dbGetQuery(db, # FIXME: check why filter BETWEEN reduces number ret
   )
 
 # Plot base map
-tm_shape(geog_data$con_shapefile) +
+tm_shape(geog_data$con_shapefile) + # FIXME map not working 
   tm_sf()
 
 ```
@@ -1109,33 +1106,51 @@ replace_na_with_mean <- function(x) {
 # add length of experience from membership start date 
 # add is.independent from members 
 
+db_table_check(db, "members")
+db_table_check(db, "oral_questions")
+db_table_check(db, "constituencies")
+db_table_check(db, "answering_bodies")
+
 analysis_df_econ <- dbGetQuery(
   db, 
   "
   SELECT 
-    answering_bodies.is_econ AS is_econ,
+    answering_bodies.is_econ AS is_econ, /* DV */
+    
+    /* IVs */ 
 
     members.latest_party_id AS asking_MP_party,
     members.gender AS asking_MP_gender,
-    constituencies.last_election_1_electorate,   
-    constituencies.last_election_1_turnout,         
-    constituencies.last_election_1_majority,               
-    constituencies.last_election_1_isGeneralElection,              
-    constituencies.region_nation_hoclib23,           
-    constituencies.population_hoclib23,          
-    constituencies.area_hoclib23,                   
-    constituencies.age_0_29_hoclib23,            
-    constituencies.age_30_64_hoclib23,               
-    constituencies.age_65_plus_hoclib23,         
-    constituencies.uc_claimants_hoclib23,            
-    constituencies.median_house_price_hoclib23 
+
+    /* Majority */ 
+    constituencies.last_election_1_majority, 
+    constituencies.last_election_2_majority, 
+    constituencies.last_election_3_majority, 
+    constituencies.last_election_4_majority,
+
+    /* turnout */ 
+    constituencies.last_election_1_turnout,
+    constituencies.last_election_2_turnout,
+    constituencies.last_election_3_turnout,
+    constituencies.last_election_4_turnout,
+
+   /* registration rates */ 
+    constituencies.last_election_1_electorate/population_hoclib23,
+    constituencies.last_election_2_electorate/population_hoclib23,
+    constituencies.last_election_3_electorate/population_hoclib23,
+    constituencies.last_election_4_electorate/population_hoclib23
+
+   /* minister answering for matches dummies */   # TODO work out how to do this from one table .. hmm
+
+   /* registration rates */ 
+
 
   FROM oral_questions
   JOIN answering_bodies
     ON oral_questions.question_answering_body_id = answering_bodies.question_answering_body_id
   JOIN members 
     ON oral_questions.asking_member = members.member_id
-      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max
+      AND oral_questions.question_tabled_when BETWEEN members.member_date_valid_min AND members.member_date_valid_max /* FIXME this filter is broken */
   JOIN constituencies 
     ON members.latest_constituency = constituencies.constituency_id
 
@@ -1144,8 +1159,11 @@ analysis_df_econ <- dbGetQuery(
   mutate(is_econ = factor(
     is_econ, levels = c(0,1), labels = c(FALSE, TRUE))) 
 
+# TODO: take averages outside of SQL
+## TODO: multiply majority by whether it's their majority or not 
+# TODO: measure "matches" averages outside of SQL
 
-# TODO: should I just exclude and focus on English and Welsh MPs?
+# CANDO: should I just exclude and focus on English and Welsh MPs?
 
 # Check which columns are missing
 #sapply(analysis_df_econ, function(x) any(is.na(x)))
