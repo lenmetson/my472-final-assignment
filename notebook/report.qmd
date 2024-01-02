@@ -62,6 +62,15 @@ replace_null_with_na <- function(x) {
   }
 }
 
+# TODO add function that converts "NA" to NA, then apply it when reading data in 
+
+replace_na_chr <- function(df) { # NOTE function adapted from ChatGPT output
+  df <- df %>%
+    mutate(across(where(is.character), ~na_if(., "NA")))
+ 
+  return(df)
+}
+
 db_table_check <- function(table){
   rows <- dbGetQuery(db, paste0("SELECT COUNT(1) FROM ", table))
   cols <- dbListFields(db, table)
@@ -191,16 +200,13 @@ for (i in seq_along(oral_questions)) {
    # remove sublists, otherwise names do not match
     oral_questions[[i]]$AskingMember <- NULL
     oral_questions[[i]][["AnsweringMinister"]] <- NULL
+    
+    oral_questions[[i]] <- replace_null_with_na(oral_questions[[i]])
 
   if (i == 1){
-    question_df <- data.frame(lapply(
-      oral_questions[[i]],
-      function(x) ifelse(is.null(x), NA, x)))
+    question_df <- data.frame(oral_questions[[i]])
   } else {
-    question_df2 <- data.frame(lapply(
-      oral_questions[[i]],
-      function(x) ifelse(is.null(x), NA, x)))
-
+    question_df2 <- data.frame(oral_questions[[i]])
     question_df <- rbind(question_df, question_df2)
   }
 }
@@ -228,9 +234,130 @@ question_df <- question_df %>%
     question_answering_when = as.character(as.Date(question_answering_when)),
     question_answering_body = as.character(question_answering_body),
     question_answering_body_id = as.character(question_answering_body_id),
-    answering_member = as.character(answering_member))
+    answering_member = as.character(answering_member),
+    oral_written = "oral") # add written_oral dummy
 
 dbWriteTable(db, "oral_questions", question_df, overwrite = TRUE)
+```
+
+
+```{r pull-written-questions}
+
+# This code can also be run by sourcing scripts/02_pull-written-questions.R  # TODO update al lscript numbers
+
+GET_qs_written <- function(endpoint_url, n_skip = 0) {
+  url <- paste0(
+    endpoint_url,
+    "?skip=",
+    n_skip,
+    "&tabledWhenFrom=2023-01-01&tabledWhenTo=2023-12-31", # Limit to 2023
+    "&house=Commons", # Limit to HoC # TODO add this to report
+    "&take=100")   
+  
+  response <-
+    httr::GET(url) %>%
+    httr::content("parsed") # Use :: because tm masks content 
+
+  return(response)
+}
+
+pull_all_written_qs <- function(endpoint_url){
+  
+  n_resp <- httr::GET(
+    paste0(
+      endpoint_url, 
+      "?tabledWhenFrom=2023-01-01&tabledWhenTo=2023-12-31", # Limit to 2023
+      "&house=Commons", # Limit to HoC # TODO add this to report
+      "&take=1")) %>% 
+    httr::content("parsed")
+
+    n <- n_resp$totalResults
+
+    # Questions can be pulled in batches of 100, calculate how many time we will have to pull
+    n_loops <- ceiling(n/100)
+
+    for(i in 1:n_loops){
+
+        n_skip <- (i-1)*100 # Skip however many 100s the loop has run
+
+        if(i==1){ # On first iteration, make new list
+
+            response <- GET_qs_written(endpoint_url, n_skip)
+            response <- response$results
+
+        } else { # On all other iterations, append to existing list 
+            responseNew <- GET_qs_written(endpoint_url, n_skip)
+            responseNew <- responseNew$results
+
+            response <- c(response, responseNew) # Merge responses 
+        }
+
+    print(paste0("LOG | Written questions | ", Sys.time(), " | ", i, " of ", n_loops, " done.")) # Print progress message
+
+    Sys.sleep(0.5) # Sleep to avoid hammering the API
+    }
+
+ print(paste0("LOG | Written questions | ", Sys.time(), " | Written question pull done :)"))
+ return(response)
+
+}
+
+
+written_questions <- pull_all_written_qs("https://questions-statements-api.parliament.uk/api/writtenquestions/questions")
+
+
+saveRDS(written_questions, "data/written_questions_2023.RDS")
+
+```
+
+```{r clean-written-questions}
+written_questions <- readRDS("data/written_questions_2023.RDS")
+
+for (i in seq_along(written_questions)) { 
+    
+  # Remove links sublist by keeping only "value" 
+  written_questions[[i]] <- written_questions[[i]]$value
+
+  # remove sublists, otherwise names do not match
+  written_questions[[i]]$groupedQuestions <- NULL
+  written_questions[[i]]$attachments <- NULL
+  written_questions[[i]]$groupedQuestionsDates <- NULL
+  
+  # Replace nulls with NAs
+  written_questions[[i]] <- replace_null_with_na(written_questions[[i]])
+
+  if (i == 1){
+    question_df <- data.frame(written_questions[[i]])
+  } else {
+    question_df2 <- data.frame(written_questions[[i]])
+    question_df <- rbind(question_df, question_df2)
+  }
+}
+
+question_df <- question_df %>%
+  select(
+    question_id = id,
+    question_text = questionText,
+    asking_member = askingMemberId,
+    question_tabled_when = dateTabled,
+    question_answering_when = dateForAnswer,
+    question_answering_body = answeringBodyName,
+    question_answering_body_id = answeringBodyId,
+    answering_member = answeringMemberId) %>%
+  # Ensure variables are the correct class 
+  mutate(
+    question_id = as.character(question_id),
+    question_text = as.character(question_text),
+    asking_member = as.character(asking_member),
+    question_tabled_when = as.character(as.Date(question_tabled_when)),
+    question_answering_when = as.character(as.Date(question_answering_when)),
+    question_answering_body = as.character(question_answering_body),
+    question_answering_body_id = as.character(question_answering_body_id),
+    answering_member = as.character(answering_member),
+    oral_written = "written") # add written_oral dummy
+
+dbWriteTable(db, "written_questions", question_df, overwrite = TRUE)
+
 ```
 
 Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked 
@@ -282,7 +409,8 @@ members_asking <- dbGetQuery(db,
     asking_member AS member_id, 
     question_tabled_when
   FROM oral_questions
-  ")
+  ")  %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
 ministers_answering <- dbGetQuery(db,
   "
@@ -290,7 +418,8 @@ ministers_answering <- dbGetQuery(db,
     answering_member AS member_id,
     question_tabled_when
   FROM oral_questions
-  ")
+  ")  %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
 q_parameters <- rbind(members_asking, ministers_answering)
 
@@ -389,7 +518,8 @@ MPs <- dbGetQuery(db,
   "
   SELECT * 
   FROM members 
-  ")
+  ")  %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
 constituencies <- MPs$latest_constituency %>% 
   unique()
@@ -925,7 +1055,8 @@ question_text <- dbGetQuery(db,
   SELECT question_id, question_text
   FROM oral_questions
   "
-)
+)  %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
 # Measure 
 
@@ -1041,8 +1172,8 @@ member_qs <- dbGetQuery(db,
       parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
 
   GROUP BY members.member_id
-  ")
-
+  ") %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
 members_econ <- member_qs %>%
   filter(econ_prop > 0) %>%
@@ -1098,7 +1229,8 @@ time_data <- dbGetQuery(db,
 
   GROUP BY 
     oral_questions.question_tabled_when
-  ")
+  ")  %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
 # Econ 
 
@@ -1164,7 +1296,8 @@ time_data_by_party <- dbGetQuery(db,
   
   GROUP BY 
     oral_questions.question_tabled_when, parties.party_name
-  ")
+  ")  %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
 time_data_by_party$date_asked <- as.Date(time_data_by_party$date_asked)
 
@@ -1234,7 +1367,8 @@ party_data <- dbGetQuery(db,
       parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
     
     GROUP BY parties.party_name
-  ")
+  ")  %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
 party_data$party_colour <- paste0("#", party_data$party_colour)
 
@@ -1306,8 +1440,9 @@ geog_data <- dbGetQuery(db,
   
   GROUP BY constituencies.cons_name
   "
-  )
-
+  )  %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
+ 
 # Add all constituencies as base map
 
 # To plot the base map, we want all constituencies, not just ones where questions have been asked.
@@ -1315,27 +1450,27 @@ geog_data <- dbGetQuery(db,
 # For reproducibility, the following code downloads and processes the data programmatically
 # To download manually, use https://osdatahub.os.uk/downloads/open/BoundaryLine
 
-options(timeout=600) # Takes some time to download so we need to increase the "timeout" setting
+# options(timeout=600) # Takes some time to download so we need to increase the "timeout" setting
 
-dir.create("data/shpfile_allUK")
-download.file("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", "data/shpfile_allUK/OS_zip.zip") #
-options(timeout=60) # Reset timeout
+# dir.create("data/shpfile_allUK")
+# download.file("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", "data/shpfile_allUK/OS_zip.zip") #
+# options(timeout=60) # Reset timeout
 
-# unzip 
-unzip(
-  "data/shpfile_allUK/OS_zip.zip", 
-  files = c(
-    "Data/GB/westminster_const_region.prj",
-    "Data/GB/westminster_const_region.shp",
-    "Data/GB/westminster_const_region.dbf",
-    "Data/GB/westminster_const_region.shxmv",
-    "Data/GB/westminster_const_region.*"),
-  exdir = "data/shpfile_allUK", 
-  overwrite = TRUE)
+# # unzip 
+# unzip(
+#   "data/shpfile_allUK/OS_zip.zip", 
+#   files = c(
+#     "Data/GB/westminster_const_region.prj",
+#     "Data/GB/westminster_const_region.shp",
+#     "Data/GB/westminster_const_region.dbf",
+#     "Data/GB/westminster_const_region.shxmv",
+#     "Data/GB/westminster_const_region.*"),
+#   exdir = "data/shpfile_allUK", 
+#   overwrite = TRUE)
 
-#file.remove("data/shpfile_allUK/OS_zip.zip")
+# #file.remove("data/shpfile_allUK/OS_zip.zip")
 
-basemap_sf <- st_read(dsn = "data/shpfile_allUK/Data/GB/westminster_const_region.shp") # FIXME base map shape files
+# basemap_sf <- st_read(dsn = "data/shpfile_allUK/Data/GB/westminster_const_region.shp") # FIXME base map shape files
 
 # Make shape files for constituencies in the database
 
@@ -1540,7 +1675,8 @@ analysis_df_econ <- dbGetQuery(
   WHERE 
     parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
   "
-  )  
+  )  %>%
+  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
 # Convert majority variables into +/- depending on whether current MP won or lost  
 analysis_df_econ <- analysis_df_econ %>%
@@ -1602,7 +1738,7 @@ apply_random_forest(
 ```
 
 ```{r}
-#econ_last_fit <- readRDS("data/rf_econ_last_fit.Rds"))
+econ_last_fit <- readRDS("data/random-forest-outputs/econlast_fit.Rds")
 
 # Variable importance plot
 
@@ -1616,6 +1752,7 @@ econ_vi_plot
 
 ```
 
+Plot average marginality 
 
 ```{r, eval = TRUE}
 # Disconnect from local database
