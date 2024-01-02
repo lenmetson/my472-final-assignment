@@ -1,11 +1,13 @@
 ---
-title: "MY472 Summative 2 Project"
+title: "MY472 Summative 3 Project"
+subtitle: "What, if any, characteristics and factors discriminate MPs who tend to ask questions about economic issues from MPs who tend to ask questions about health and welfare issues?"
 author: "Candidate 30552"
 format: 
     html:
         embed-resources: true 
 ---
 
+Link to public GitHub repository: [https://github.com/lenmetson/my472-final-assignment](https://github.com/lenmetson/my472-final-assignment).
 
 ```{r, include = FALSE} 
 knitr::opts_chunk$set(
@@ -51,6 +53,7 @@ load_packages(c(
     "vip", 
     "rpart", 
     "rpart.plot", 
+    # Plotting 
     "gridExtra"
     ))
 
@@ -86,35 +89,15 @@ db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
 # Introduciton 
 
-# Data 
+Parliamentary questions are a critical part of how MPs represent their constituency. Therefore, I focus on asking what factors about the constituency an MP represents drives their focus on economic or health and welfare topics in 2023. I operationalise “focus” as the proportion of questions a member asks about a given topic. 
 
+# Data
 
+I drew on data from two sources: the UK Parliament API (“API”), and the [UK House of Commons constituency dashboard](https://commonslibrary.parliament.uk/constituency-dashboard/) (“dashboard”). I limit my analysis to questions asked in 2023. I store data efficiently, I used a local relational database. 
 
-To store the data I collect, I will use a local relational database. This will improve the efficiency of the storage because... It will also allow me to query only the variables I need for anlausis 
+## API 
 
-I draw on 4 endpoint from parlimanet's API to construct four three tables that I write out to database.
-
-1. Oral questions 
-2. Members
-3. Constituencies 
-4. Elections
-
-Tables: 
-
-1. questions
-2. mps
-3. constituencies (containing election results)
-
-I then will create an additional table with the results of the measurmeent I use to classify questions. 
-
-4. question_topics 
-
-
-## Parliament API 
-
-First, I scraped all questions availble from the written and oral endpoints. Both endpoints only return up to 100 questions with one request. However, you can skip responses. Therefore, you can retrieve all questions by looping through... 
-
-These reponses do not return the full text of each question, so I use these responses as a sampling frame 
+First, I pulled the text of questions from the API oral and written question endpoints. For oral questions, the API only returns questions asked in the House of Commons. However, the written question endpoint returns questions from both the House of Lords and the House of Commons. Therefore, I added a parameter to the request URL to only return written questions asked by members of the House of Commons. After flattening and cleaning the responses and adding a variable `oral_written` to distinguish the question type, I merged both types of question into one dataframe and wrote it to my database as `"questions"`. 
 
 ```{r pull-oral-questions}
 
@@ -198,7 +181,7 @@ GET_qs_written <- function(endpoint_url, n_skip = 0) {
     "?skip=",
     n_skip,
     "&tabledWhenFrom=2023-01-01&tabledWhenTo=2023-12-31", # Limit to 2023
-    "&house=Commons", # Limit to HoC # TODO add this to report
+    "&house=Commons", # Limit to HoC 
     "&take=100")   
   
   response <-
@@ -214,7 +197,7 @@ pull_all_written_qs <- function(endpoint_url){
     paste0(
       endpoint_url, 
       "?tabledWhenFrom=2023-01-01&tabledWhenTo=2023-12-31", # Limit to 2023
-      "&house=Commons", # Limit to HoC # TODO add this to report
+      "&house=Commons", # Limit to HoC
       "&take=1")) %>% 
     httr::content("parsed")
 
@@ -361,10 +344,11 @@ dbWriteTable(db, "questions", question_df, overwrite = TRUE)
 rm(oral_question_df, written_question_df, question_df)
 ```
 
-Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked 
+For each question, I wanted to be able to pull in additional data about the MP who had asked it and the minister they asked it to. Some MP characteristics, such as their party affiliation or seat, change over time. The API members endpoint allows queries to specify a date. It then returns data as valid from that date. To pull make the fewest possible requests, I created unique MP-date pairs from my `questions` table. 
+
+Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accommodates these changes. The API allows queries that specify a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked. 
 
 ```{r pull-members-endpoint}
-
 
 # This code can also be run by sourcing scripts/03_pull-members-endpoint.R 
 
@@ -437,6 +421,8 @@ members <- pull_members(
 saveRDS(members, "data/members_raw.Rds")
 ```
 
+However, because characteristics do not change very frequently, I did not want to write out a table with data on each MP for every day they had asked a question. Therefore, I grouped the clean response table by each unique combination of MP and their characteristics and summarised the earliest and latest date this combination was valid for. This reduced the number of rows I would write to my `members` table from 4225 to 482.
+
 ```{r clean-members-pull}
 
 members <- readRDS("data/members_raw.Rds") 
@@ -506,8 +492,10 @@ dbWriteTable(db, "members", members_df_grouped, overwrite = TRUE)
 
 ```
 
+I then used the constituency endpoints to pull the results of the last 4 elections held in each constituency and a shapefile for each constituency. 
 
 ```{r pull-constituency-endpoints}
+
 # This code can also be run by sourcing scripts/04_pull-constituency-endpoints.R 
 
 MPs <- dbGetQuery(db,
@@ -703,6 +691,10 @@ for (i in seq_along(constituencies$constituency_id)) {
 saveRDS(constituencies, "data/constituencies_api_raw.Rds")
 ```
 
+## Dashboard
+
+The data on the demographics of constituencies from the UK Parliament API is very limited. Therefore, I used the Commons Library constituency dashboard to add demographic variables. This data source does not have an API endpoint and requires each constituency to be looked up using a search tool. Therefore, I used Selenium to interactively scrape the data. One limitation of this data source was that data on the median house price in each constituency was not available for constituencies in Scotland and Northern Ireland. 
+
 ```{r selenium-scrape-hoc-dashboard}
 
 # This code can also be run by sourcing scripts/04_selinium-scrape-HoC-dashboard.R 
@@ -740,6 +732,10 @@ rD <- rsDriver(browser=c("firefox"), verbose = F, port = netstat::free_port(rand
 driver <- rD$client
 
 # Define a list of css selectors
+
+# The dashboard is contained within an "iframe". 
+# This allows a different html tree to be embedded within the main html of the webpage meaning any CSS paths do not point to the actual path of the webpage. 
+# To do this, we need to identify the iframe and use `switchToFrame()` to identify elements on the dashboard. 
 
 selector_list <- list()
 
@@ -958,6 +954,8 @@ if (file.exists("data/hoc_library_scrape_raw.Rds")) {
 
 ```
 
+After merging the scraped data with the constituency data pulled from the API, I wrote out the clean dataframe to `constituencies`. 
+
 ```{r clean-constituency-data}
 
 # Clean dashboard data
@@ -1020,6 +1018,8 @@ dbWriteTable(db, "constituencies", cons, overwrite = TRUE)
 
 ```
 
+Finally, I obtained party names and colours from the API and wrote out the results as the table `"parties"` for use in plotting. 
+
 ```{r pull-party-info}
 
 response <- httr::GET("https://members-api.parliament.uk/api/Parties/GetActive/1") %>%
@@ -1059,6 +1059,12 @@ dbWriteTable(db, "parties", parties_df, overwrite = TRUE)
 
 ```
 
+This resulted in 4 tables in my local database:
+
+1. questions
+2. members
+3. constituencies 
+4. parties 
 
 # Analysis 
 
@@ -1087,7 +1093,7 @@ question_text$question_text <- question_text$question_text %>%
     tm::removePunctuation() # remove punctuation
 
 # Define dictionaries 
-# TODO: better define dictionaries
+# CANDO: better define dictionaries
 
 
 econ_dict <- c(
@@ -1152,7 +1158,7 @@ db_table_check("question_topics")
 
 ## Descriptive analysis 
 
-```{r members}
+```{r members, eval = TRUE}
 
 member_qs <- dbGetQuery(db, 
   "
@@ -1225,7 +1231,7 @@ grid.arrange(members_econ, members_health, nrow = 1)
 
 ### Time 
 
-```{r time-plot, eval = TRUE}
+```{r time-plot, eval = FALSE}
 
 # Query database to return a table with the count of questions asked on each day 
 
@@ -1288,7 +1294,7 @@ grid.arrange(time_econ, time_health, nrow = 1)
 
 ```
 
-```{r time-plot-by-party, eval = TRUE}
+```{r time-plot-by-party, eval = FALSE}
 
 time_data_by_party <- dbGetQuery(db, 
   "
@@ -1360,7 +1366,7 @@ grid.arrange(time_party_health, time_party_econ, nrow = 1)
 
 ### Party 
 
-```{r party-plots, eval = TRUE}
+```{r party-plots, eval = FALSE}
 party_data <- dbGetQuery(db, 
   "
   SELECT 
@@ -1537,7 +1543,6 @@ db_table_check("questions")
 db_table_check("constituencies")
 db_table_check("question_topics")
 db_table_check("parties")
-
 ```
 
 TODO
@@ -1554,13 +1559,12 @@ DBI::dbDisconnect(db)
 ```
 
 # Code appendix
-```{r, eval = TRUE}
-sessionInfo()
-```
 
 ```{r ref.label=knitr::all_labels(), echo=TRUE} 
 
 ```
 
-
+```{r, eval = TRUE}
+sessionInfo()
+```
 

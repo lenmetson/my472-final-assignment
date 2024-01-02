@@ -1,60 +1,81 @@
-# Introduction
-
 What, if any, characteristics and factors discriminate MPs who tend to ask questions about economic issues from MPs who tend to ask questions about health and welfare issues?”
 
-Parliamentary questions are a critical part of how MPs represent their constituents. Rather than the topic of the question, I operationalise asking questions by the ministers MPs ask questions to, rather than the content of the questions 
-
-
-
-
-
-# Data 
-
-To answer this question, I draw on two sources of data. First, the UK Parliament API endpoins provide data both on the questions that MPs ask, but also data on MPs and the electoral results of the constituencies they represent. However, more detailed information about constituencies is limited. The UK House of Commons Library publishes an interactive dashboard with information on the demographics of every constituency. I use Selinium to dynamically scrape data from this dashboard. 
-
-TODO resrict to 2023? would make sense with the constituency information, and would be easier to reproduce 
-- This would involve
-  - Limiting query of questions
-  - Limiting query of members
-- Do this with a branch maybe? 
-
-To store the data I collect, I will use a local relational database. This will improve the efficiency of the storage because... It will also allow me to query only the variables I need for anlausis 
-
-I draw on 4 endpoint from parlimanet's API to construct four three tables that I write out to database.
-
-1. Oral questions 
-2. Members
-3. Constituencies 
-4. Elections
-
-Tables: 
-
-1. oral_questions
-2. mps
-3. constituencies (containing election results)
-
-I then will create an additional table with the results of the measurmeent I use to classify questions. 
-
-4. question_topics 
-
-
-## Parliament API 
-
-First, I scraped all questions availble from the written and oral endpoints. Both endpoints only return up to 100 questions with one request. However, you can skip responses. Therefore, you can retrieve all questions by looping through... 
-
-Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accomodates these changes. The UK Parliament members API allows queries that specifiy a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked. 
-
-I obtained more constituency information from the UK House of Commons Library Constituecy dashboard. This does not have an API, and contains dynamic elements, so I used Selinum to scrape it. 
-
-```{r selenium-scrape-hoc-dashboard}
-
+```{r basic-setup}
 ```
 
-This process was somewhat complicated by the fact that the dashboard is contained within an "iframe". This allows a different html tree to be embedded within the main html of the webpage meaning any CSS paths do not point to the actual path of the webpage. Do do this, we need to identify the iframe and use `switchToFrame()` to identify elements on the dashboard. 
+# Introduction
 
-HOUSEPRICE INFO ONLY IN ENG AND WALES, that's why so many NAs
+NOTE (52w)
+Parliamentary questions are a critical part of how MPs represent their constituency. Therefore, I focus on asking what factors about the constituency an MP represents drives their focus on economic or health and welfare topics in 2023. I operationalise “focus” as the proportion of questions a member asks about a given topic. 
+
+TODO
+[ summary of results]
+
+# Data 
+# NOTE data section = 522w
+
+I drew on data from two sources: the UK Parliament API (“API”), and the [UK House of Commons constituency dashboard](https://commonslibrary.parliament.uk/constituency-dashboard/) (“dashboard”). I limit my analysis to questions asked in 2023. I store data efficiently, I used a local relational database. 
+
+## API 
+
+First, I pulled the text of questions from the API oral and written question endpoints. For oral questions, the API only returns questions asked in the House of Commons. However, the written question endpoint returns questions from both the House of Lords and the House of Commons. Therefore, I added a parameter to the request URL to only return written questions asked by members of the House of Commons. After flattening and cleaning the responses and adding a variable `oral_written` to distinguish the question type, I merged both types of question into one dataframe and wrote it to my database as `"questions"`. 
 
 
+```{r pull-oral-questions}
+```
+
+```{r pull-written-questions}
+```
+
+```{r clean-questions}
+```
+
+For each question, I wanted to be able to pull in additional data about the MP who had asked it and the minister they asked it to. Some MP characteristics, such as their party affiliation or seat, change over time. The API members endpoint allows queries to specify a date. It then returns data as valid from that date. To pull make the fewest possible requests, I created unique MP-date pairs from my `questions` table. 
+
+Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accommodates these changes. The API allows queries that specify a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked. 
+
+```{r pull-members-endpoint}
+```
+
+However, because characteristics do not change very frequently, I did not want to write out a table with data on each MP for every day they had asked a question. Therefore, I grouped the clean response table by each unique combination of MP and their characteristics and summarised the earliest and latest date this combination was valid for. This reduced the number of rows I would write to my `members` table from 4225 to 482.
+
+```{r clean-members-pull}
+```
+
+I then used the constituency endpoints to pull the results of the last 4 elections held in each constituency and a shapefile for each constituency. 
+
+```{r pull-constituency-endpoints}
+```
+
+ 
+## Dashboard
+
+The data on the demographics of constituencies from the UK Parliament API is very limited. Therefore, I used the Commons Library constituency dashboard to add demographic variables. This data source does not have an API endpoint and requires each constituency to be looked up using a search tool. Therefore, I used Selenium to interactively scrape the data. One limitation of this data source was that data on the median house price in each constituency was not available for constituencies in Scotland and Northern Ireland. 
+
+```{r selenium-scrape-hoc-dashboard}
+```
+
+After merging the scraped data with the constituency data pulled from the API, I wrote out the clean dataframe to `constituencies`. 
+
+```{r clean-constituency-data}
+```
+
+## Final database 
+
+Finally, I obtained party names and colours from the API and wrote out the results as the table `"parties"` for use in plotting. 
+
+```{r pull-party-info}
+``` 
+
+This resulted in 4 tables in my local database:
+
+1. questions
+2. members
+3. constituencies 
+4. parties 
+  
+
+CANDO
 DIAGRAM OF FINAL RELATIONAL DATABASE
 
 # Analysis 
@@ -63,49 +84,13 @@ DIAGRAM OF FINAL RELATIONAL DATABASE
 
 Dictionaries 
 
+Wrote out to a 5th table 
 
 
 ## Descriptive analysis 
 
 Having measured question topics, I first plot how they vary over time and across the UK. 
 
-I focus on the 4 main UK-wide parties 
-
-### Over time 
-
-- Plot 
-- Short anlaysis 
-
-
-### By Party
-
-Because there is an unequal distribution of questions based on the number of seats a party has, I use the proportion of questions asked. This is a measure of how *focused* a party is on either economic or health and welfare topics. 
-
-
-
-### Over constituency 
-
-- Plot 
-- Short analysis 
-
-
-## Exploratory analysis 
-
-TODO: operationalise electoral history
-- Count party has won
-- Av. majority in last 4 elections
-
-Next, I conduct an exporatory anlaysis to see which factors about an MP and their constituency might predict whether they ask economic or health/welfare questions. 
-
-
-Missing values
-- Mean imputation 
-
-
-Only two columns have NAs. This is Scotish and Northern Irish constituncies where house prices and universial credit claimants were not avialble
-
-CANDO try with removal of NAs?
-
-`sapply(analysis_df_econ, function(x) any(is.na(x)))`
+I focus on the 4 main UK-wide parties #CHECK
 
 # Code appendix
