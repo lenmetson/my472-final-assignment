@@ -197,3 +197,16 @@ apply_random_forest(
   folds = 5,
   tuning_levels = 4,
   cores = parallel::detectCores())
+
+
+econ_last_fit <- readRDS("data/random-forest-outputs/econlast_fit.Rds")
+
+# Variable importance plot
+
+econ_vi_plot <- econ_last_fit %>%
+  pluck(".workflow", 1) %>%
+  extract_fit_parsnip() %>%
+  vip(num_features = 10) + #  CANDO can vary this
+  labs(title = "Variable importance for asking Economic Questions")
+
+econ_vi_plot
