@@ -30,7 +30,7 @@ pull_members <- function(base_url, df) {
       response <- c(response, response_new) # Merge responses
     }
 
-    Sys.sleep(1)
+    Sys.sleep(0.5)
 
     print(paste0("LOG Member Pull | ", Sys.time(), " | ", i, " of ", nrow(df), " done"))
   }
@@ -60,11 +60,6 @@ q_parameters <- rbind(members_asking, ministers_answering)
 # Only keep unique MP-date pairs to avoid pulling the same information twice
 q_parameters <- unique(q_parameters) %>%
   filter(member_id != 0) # Remove 0s because these indicate no minister has answered
-
-
-q_parameters <- q_parameters %>%
-  mutate( # Change format of dates to just YYYY-MM-DD
-    question_tabled_when = str_extract(question_tabled_when, ".+?(?=T)"))
 
 # Apply function to pull members 
 members <- pull_members(
