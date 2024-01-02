@@ -1066,18 +1066,9 @@ This resulted in 4 tables in my local database:
 3. constituencies 
 4. parties 
 
-# Analysis 
-
-TODO decide whether to restrict analysis to england and wales, if so add filter to queries
-TODO remove party plots 
-TODO remove party restrictions if remove party plots 
-
-CANDO random forests (but won't have words)
-
-## Measure topics 
+## Measurement
 
 TODO write up measurement
-
 
 ```{r measure-topics}
 
@@ -1154,7 +1145,8 @@ mean(question_text$is_health_welf)
 
 dbWriteTable(db, "question_topics", question_text, overwrite = TRUE)
 
- ``` 
+``` 
+
 
 ```{r check-tables}
 dbListTables(db)
@@ -1165,7 +1157,15 @@ db_table_check("parties")
 db_table_check("question_topics")
 ```
 
-## Descriptive analysis 
+# Analysis 
+
+TODO decide whether to restrict analysis to england and wales, if so add filter to queries
+TODO remove party plots 
+TODO remove party restrictions if remove party plots 
+
+CANDO random forests (but won't have words)
+
+
 
 ```{r members, eval = TRUE}
 
