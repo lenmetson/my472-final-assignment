@@ -250,7 +250,7 @@ health_welf_forest_df <- dbGetQuery(
   "
   )  %>%
   replace_na_chr() %>% # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
-  mutate(is_econ = factor(is_econ, levels = (c(0,1)), labels = c("no", "yes"))) %>%
+  mutate(is_health_welf = factor(is_health_welf, levels = (c(0,1)), labels = c("no", "yes"))) %>%
   mutate( # Convert majority variables into +/- depending on whether current MP won or lost  
     last_election_1_majority = 
       ifelse(str_detect(last_election_1_result, party_abbreviation), 
