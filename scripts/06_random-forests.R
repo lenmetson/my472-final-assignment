@@ -142,6 +142,7 @@ econ_forest_df <- dbGetQuery(
   "
   ) %>%
   replace_na_chr() %>% # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
+  mutate(is_econ = factor(is_econ, levels = (c(0,1)), labels = c("no", "yes"))) %>%
   mutate( # Convert majority variables into +/- depending on whether current MP won or lost  
     last_election_1_majority = 
       ifelse(str_detect(last_election_1_result, party_abbreviation), 
@@ -249,6 +250,7 @@ health_welf_forest_df <- dbGetQuery(
   "
   )  %>%
   replace_na_chr() %>% # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
+  mutate(is_econ = factor(is_econ, levels = (c(0,1)), labels = c("no", "yes"))) %>%
   mutate( # Convert majority variables into +/- depending on whether current MP won or lost  
     last_election_1_majority = 
       ifelse(str_detect(last_election_1_result, party_abbreviation), 
@@ -292,8 +294,9 @@ sapply(health_welf_forest_df, function(x) any(is.na(x)))
 health_welf_forest_df$mean_marginality <- 
   replace_na_with_mean(health_welf_forest_df$mean_marginality)
 
-
-# Apply functions 
+###################
+# Apply functions #
+###################
 
 apply_random_forest(
   df = econ_forest_df,
@@ -302,20 +305,18 @@ apply_random_forest(
   seed = 1145,
   initial_split_prop = 0.8,
   folds = 5,
-  tuning_levels = 4,
+  tuning_levels = 6,
   cores = parallel::detectCores())
 
 apply_random_forest(
   df = health_welf_forest_df,
   dv_name = "is_health_welf",
-  output_name = "econ",
+  output_name = "health_welf",
   seed = 1145,
   initial_split_prop = 0.8,
   folds = 5,
-  tuning_levels = 5,
+  tuning_levels = 6,
   cores = parallel::detectCores())
-
-
 
 
 # Variable importance plot
