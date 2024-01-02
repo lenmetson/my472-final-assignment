@@ -56,6 +56,7 @@ rsconnect/
 *.db
 *.RData
 *.Rds
+*.RDS
 
 # Keys 
 *.env
