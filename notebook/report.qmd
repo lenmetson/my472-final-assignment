@@ -1163,10 +1163,6 @@ db_table_check("question_topics")
 
 # Analysis 
 
-TODO decide whether to restrict analysis to england and wales, if so add filter to queries
-TODO remove party plots 
-TODO remove party restrictions if remove party plots 
-
 CANDO random forests (but won't have words)
 
 
@@ -1174,8 +1170,6 @@ CANDO random forests (but won't have words)
 ### Geography
 
 ```{r geog-plot, eval = TRUE}
-
-# TODO remove party restriction, add national restriction 
 
 geog_data <- dbGetQuery(db,
   "
@@ -1280,21 +1274,24 @@ tmap_arrange(econ_map, health_map)
 
 ```
 
-TODO analysis 
-Plot 
- - average marginality over past 4 elections 
- - UC claimants 
- - Median house price 
-
-```{r seat-marginality}
-
-
-marginality_df <- dbGetQuery(
+```{r read-in-analysis-data, eval = TRUE}
+analysis_df <- dbGetQuery(
   db, 
   "
   SELECT 
+
+    members.name_display AS MP,
+    parties.party_abbreviation AS party_abbreviation, 
+    
     SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
     SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
+    
+    constituencies.uc_claimants_hoclib23 AS uc_claimants,
+    constituencies.median_house_price_hoclib23 AS median_house_price,
+
+    constituencies.age_0_29_hoclib23 AS age_29,
+    constituencies.age_30_64_hoclib23 AS age_30_64,
+    constituencies.age_65_plus_hoclib23 AS age_65,
 
     /* Majority */ 
     constituencies.last_election_1_majority, 
@@ -1329,28 +1326,402 @@ marginality_df <- dbGetQuery(
         AND REPLACE(members.member_date_valid_max, '-', '')
   
   LEFT JOIN constituencies ON members.latest_constituency = constituencies.constituency_id
+  LEFT JOIN parties ON parties.party_id = members.latest_party_id
 
   WHERE 
     constituencies.region_nation_hoclib23 NOT IN ('Northern Ireland', 'Scotland')
 
-  GROUP BY constituencies.cons_name
+  GROUP BY members.member_id
   "
   )  %>%
   replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
 
+# Convert majority variables into +/- depending on whether current MP won or lost  
+analysis_df <- analysis_df %>%
+  mutate(
+    last_election_1_majority = 
+      ifelse(str_detect(last_election_1_result, party_abbreviation), 
+        last_election_1_majority, 
+        last_election_1_majority * -1),
+    last_election_2_majority = 
+      ifelse(str_detect(last_election_2_result, party_abbreviation), 
+        last_election_2_majority, 
+        last_election_2_majority * -1),
+    last_election_3_majority = 
+      ifelse(str_detect(last_election_3_result, party_abbreviation), 
+        last_election_3_majority, 
+        last_election_3_majority * -1),
+    last_election_4_majority = 
+      ifelse(str_detect(last_election_4_result, party_abbreviation), 
+        last_election_4_majority, 
+        last_election_4_majority * -1)
+  ) %>% 
+  select(-c(last_election_1_result, last_election_2_result, last_election_3_result, last_election_4_result))
+
+# Calculate marginality 
+analysis_df <- analysis_df %>%
+  mutate(
+    marginality_1 = (last_election_1_majority / last_election_1_electorate),
+    marginality_2 = (last_election_2_majority / last_election_2_electorate),
+    marginality_3 = (last_election_3_majority / last_election_3_electorate),
+    marginality_4 = (last_election_4_majority / last_election_4_electorate)
+  ) %>%
+  select(-c(last_election_1_majority, last_election_2_majority, last_election_3_majority, last_election_4_majority, last_election_1_electorate, last_election_2_electorate,last_election_3_electorate,last_election_4_electorate))
+
+# Calcualte mean marginality 
+analysis_df <- analysis_df %>%  
+  mutate(
+    mean_marginality = rowMeans(select(., starts_with("marginality_")))
+  ) %>%
+  select(-c(marginality_1, marginality_2, marginality_3, marginality_4))
+```
+```{r seat-marginality, eval = TRUE}
+
+# Run linear models 
+lm_marg_e <- summary(lm(econ_prop ~ mean_marginality, data = analysis_df))
+
+lm_marg_h <- summary(lm(health_welf_prop ~ mean_marginality, data = analysis_df))
+
+# Save slope coefficients and SEs for plotting
+
+slope_marg_e <- lm_marg_e$coefficients[[2,1]]
+se_marg_e <- lm_marg_e$coefficients[[2,2]]
+
+slope_marg_h <- lm_marg_h$coefficients[[2,1]]
+se_marg_h <- lm_marg_h$coefficients[[2,2]]
+
+# Make plots
+
+econ_marginality <- analysis_df %>%
+  ggplot(aes(x=mean_marginality, y = econ_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=-0.2, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_marg_e, digits = 3),
+      "\n SE: ", signif(se_marg_e, digits = 3)
+    ),
+    size = 3)+  
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+health_welf_marginality <- analysis_df %>%
+  ggplot(aes(x=mean_marginality, y = health_welf_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=-0.2, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_marg_h, digits = 3),
+      "\n SE: ", signif(se_marg_h, digits = 3)
+      ),
+    size = 3)+
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+grid.arrange(econ_marginality, health_welf_marginality, nrow=1)
+
+```
+
+
+```{r con-uc-claimants, eval = TRUE}
+
+
+# Run linear models 
+lm_uc_e <- summary(lm(econ_prop ~ uc_claimants, data = analysis_df))
+
+lm_uc_h <- summary(lm(health_welf_prop ~ uc_claimants, data = analysis_df))
+
+# Save slope coefficients and SEs for plotting
+
+slope_uc_e <- lm_uc_e$coefficients[[2,1]]
+se_uc_e <- lm_uc_e$coefficients[[2,2]]
+
+slope_uc_h <- lm_uc_h$coefficients[[2,1]]
+se_uc_h <- lm_uc_h$coefficients[[2,2]]
+
+# Make plots
+
+econ_uc <- analysis_df %>%
+  ggplot(aes(x=uc_claimants, y = econ_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=-0.2, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_uc_e, digits = 3),
+      "\n SE: ", signif(se_uc_e, digits = 3)
+    ),
+    size = 3)+  
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+health_uc <- analysis_df %>%
+  ggplot(aes(x=uc_claimants, y = health_welf_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=-0.2, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_uc_h, digits = 3),
+      "\n SE: ", signif(se_uc_h, digits = 3)
+      ),
+    size = 3)+
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+grid.arrange(econ_uc, health_uc, nrow=1)
+
+```
+
+
+```{r con-house-price, eval = TRUE}
+
+# Run linear models 
+lm_house_price_e <- summary(lm(econ_prop ~ median_house_price, data = analysis_df))
+
+lm_house_price_h <- summary(lm(health_welf_prop ~ median_house_price, data = analysis_df))
+
+# Save slope coefficients and SEs for plotting
+
+slope_house_price_e <- lm_house_price_e$coefficients[[2,1]]
+se_house_price_e <- lm_house_price_e$coefficients[[2,2]]
+
+slope_house_price_h <- lm_house_price_h$coefficients[[2,1]]
+se_house_price_h <- lm_house_price_h$coefficients[[2,2]]
+
+
+# Make plots 
+
+econ_house_price <- analysis_df %>%
+  ggplot(aes(x=median_house_price, y = econ_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=9*10^5, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_house_price_e, digits = 3),
+      "\n SE: ", signif(se_house_price_e, digits = 3)
+    ),
+    size = 3)+  
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+health_house_price <- analysis_df %>%
+  ggplot(aes(x=median_house_price, y = health_welf_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=9*10^5, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_house_price_h, digits = 3),
+      "\n SE: ", signif(se_house_price_h, digits = 3)
+      ),
+    size = 3)+
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+grid.arrange(econ_house_price, health_house_price, nrow=1)
 
 ```
 
 
 
+```{r con-age, eval = TRUE}
+
+## Under 29 
+
+# Run linear models 
+lm_age_29_e <- summary(lm(econ_prop ~ age_29, data = analysis_df))
+
+lm_age_29_h <- summary(lm(health_welf_prop ~ age_29, data = analysis_df))
+
+# Save slope coefficients and SEs for plotting
+
+slope_age_29_e <- lm_age_29_e$coefficients[[2,1]]
+se_age_29_e <- lm_age_29_e$coefficients[[2,2]]
+
+slope_age_29_h <- lm_age_29_h$coefficients[[2,1]]
+se_age_29_h <- lm_age_29_h$coefficients[[2,2]]
+
+
+# Make plots 
+
+econ_age_29 <- analysis_df %>%
+  ggplot(aes(x = age_29, y = econ_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=0.5, y= 0.5),     label = paste0(
+      "Slope: ", signif(slope_age_29_e, digits = 3),
+      "\n SE: ", signif(se_age_29_e, digits = 3)
+    ),
+    size = 3)+  
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+health_age_29 <- analysis_df %>%
+  ggplot(aes(x= age_29, y = health_welf_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=0.5, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_age_29_h, digits = 3),
+      "\n SE: ", signif(se_age_29_h, digits = 3)
+      ),
+    size = 3)+
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+## 30-65 
+
+# Run linear models 
+lm_age_30_64_e <- summary(lm(econ_prop ~ age_30_64, data = analysis_df))
+
+lm_age_30_64_h <- summary(lm(health_welf_prop ~ age_30_64, data = analysis_df))
+
+# Save slope coefficients and SEs for plotting
+
+slope_age_30_64_e <- lm_age_30_64_e$coefficients[[2,1]]
+se_age_30_64_e <- lm_age_30_64_e$coefficients[[2,2]]
+
+slope_age_30_64_h <- lm_age_30_64_h$coefficients[[2,1]]
+se_age_30_64_h <- lm_age_30_64_h$coefficients[[2,2]]
+
+
+# Make plots 
+
+econ_age_30_64 <- analysis_df %>%
+  ggplot(aes(x = age_30_64, y = econ_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=0.5, y= 0.5),     label = paste0(
+      "Slope: ", signif(slope_age_30_64_e, digits = 3),
+      "\n SE: ", signif(se_age_30_64_e, digits = 3)
+    ),
+    size = 3)+  
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+health_age_30_64 <- analysis_df %>%
+  ggplot(aes(x= age_30_64, y = health_welf_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=0.5, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_age_30_64_h, digits = 3),
+      "\n SE: ", signif(se_age_30_64_h, digits = 3)
+      ),
+    size = 3)+
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+## 65+
+
+# Run linear models 
+lm_age_65_e <- summary(lm(econ_prop ~ age_65, data = analysis_df))
+
+lm_age_65_h <- summary(lm(health_welf_prop ~ age_65, data = analysis_df))
+
+# Save slope coefficients and SEs for plotting
+
+slope_age_65_e <- lm_age_65_e$coefficients[[2,1]]
+se_age_65_e <- lm_age_65_e$coefficients[[2,2]]
+
+slope_age_65_h <- lm_age_65_h$coefficients[[2,1]]
+se_age_65_h <- lm_age_65_h$coefficients[[2,2]]
+
+
+# Make plots 
+
+econ_age_65 <- analysis_df %>%
+  ggplot(aes(x = age_65, y = econ_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=0.3, y= 0.5),     label = paste0(
+      "Slope: ", signif(slope_age_65_e, digits = 3),
+      "\n SE: ", signif(se_age_65_e, digits = 3)
+    ),
+    size = 3)+  
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+health_age_65 <- analysis_df %>%
+  ggplot(aes(x= age_65, y = health_welf_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=0.3, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_age_65_h, digits = 3),
+      "\n SE: ", signif(se_age_65_h, digits = 3)
+      ),
+    size = 3)+
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+grid.arrange(
+  econ_age_29, health_age_29, 
+  econ_age_30_64, health_age_30_64,  
+  econ_age_65, health_age_65,   
+  nrow=3)
+
+```
+
+
 ## Exploratory analysis 
 
 ```{r}
-db_table_check("members")
-db_table_check("questions")
-db_table_check("constituencies")
-db_table_check("question_topics")
-db_table_check("parties")
+
 ```
 
 ```{r, eval = TRUE}
