@@ -1515,88 +1515,6 @@ tmap_arrange(econ_map, health_map)
 
 ## Exploratory analysis 
 
-```{r define-forest-functions}
-
-
-dir.create("data/random-forest-outputs")
-
-# Function for mean imputation
-
-replace_na_with_mean <- function(x) {
-  mean_value <- mean(x, na.rm = TRUE)
-  ifelse(is.na(x), mean_value, x)
-}
-
-apply_random_forest <- function(
-  df, 
-  dv_name = "",
-  output_name = "",
-  seed = 123, 
-  initial_split_prop = 0.8, 
-  folds = 5, 
-  tuning_levels = 4, 
-  cores = parallel::detectCores()) {
-
-    df <- df %>%
-      rename(dv = all_of(dv_name))
-
-    set.seed(seed)
-    split <- initial_split(df, prop = initial_split_prop)
-
-    train <- training(split)
-    test <- testing(split)
-    folds <- vfold_cv(train, v = folds)
-    
-    print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Splits done." ))
-
-    recipe <- recipe(dv ~ ., data = df)
-
-    spec <- rand_forest(
-      mtry = tune(), 
-      trees = tune(), 
-      min_n = tune()) %>%
-    set_mode("classification") %>%
-    set_engine("ranger", num.threads = cores, importance = "impurity")
-
-  workflow <- workflow() %>%
-    add_recipe(recipe) %>%
-    add_model(spec)
-  
-  tuning_grid <- grid_regular(
-    mtry(range = c(1, ncol(df)-1)), # Change to number of independent variables
-    trees(),
-    min_n(),
-    levels = tuning_levels
-    )
-
-  print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Tuning started." ))
-  set.seed(seed)
-  tune <- workflow %>%
-    tune_grid(
-      resamples = folds, 
-      grid = tuning_grid)
-
-  saveRDS(tune, paste0("data/random-forest-outputs/", output_name, "_tune.Rds"))
-  print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Tuning done." ))
-  
-  final <- workflow %>%
-    finalize_workflow(parameters = select_best(tune, "roc_auc"))
-
-  set.seed(seed)
-
-  last_fit <- final %>%
-    last_fit(split = split)
-  
-  saveRDS(last_fit, paste0("data/random-forest-outputs/", output_name, "last_fit.Rds") )
-
-  print(paste0("LOG | ", output_name, " | ", Sys.time(), " | Final output done :)" ))
-  }
-
-
-
-
-```
-
 ```{r}
 db_table_check("members")
 db_table_check("questions")
@@ -1606,7 +1524,13 @@ db_table_check("parties")
 
 ```
 
-Plot average marginality 
+TODO
+Plot 
+ - average marginality over past 4 elections 
+ - UC claimants 
+ - Median house price 
+ - Constituency population density? 
+ - Region/nation
 
 ```{r, eval = TRUE}
 # Disconnect from local database
