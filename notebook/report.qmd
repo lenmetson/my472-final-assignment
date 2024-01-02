@@ -739,6 +739,7 @@ cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
 cons$check_already_pulled <- cons$cons_name %in% cons_hoc$cons_name
 cons <- cons %>% filter(check_already_pulled == FALSE)
 
+# PICKUP run on laptop
 # Set selinium browser
 rD <- rsDriver(browser=c("firefox"), verbose = F, port = netstat::free_port(random = TRUE), chromever = NULL) 
 driver <- rD$client
