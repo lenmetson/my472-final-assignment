@@ -40,6 +40,13 @@ replace_null_with_na <- function(x) {
   }
 }
 
+replace_na_chr <- function(df) { # NOTE function adapted from ChatGPT output
+  df <- df %>%
+    mutate(across(where(is.character), ~na_if(., "NA")))
+ 
+  return(df)
+}
+
 db_table_check <- function(table){
   rows <- dbGetQuery(db, paste0("SELECT COUNT(1) FROM ", table))
   cols <- dbListFields(db, table)
