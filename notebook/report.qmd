@@ -735,9 +735,13 @@ cons <- cons %>%
 # Check whether constituencies have already been pulled and saved.
 # If running for the first time, you will not be able to read in cons_hoc.
 # TODO Therefore, comment the 3 following lines out if running for the first time.
-cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
-cons$check_already_pulled <- cons$cons_name %in% cons_hoc$cons_name
-cons <- cons %>% filter(check_already_pulled == FALSE)
+
+if (file.exists("data/hoc_library_scrape_raw.Rds")) {
+  cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
+  cons$check_already_pulled <- cons$cons_name %in% cons_hoc$cons_name
+  cons <- cons %>% filter(check_already_pulled == FALSE)
+} 
+
 
 # PICKUP run on laptop
 # Set selinium browser
