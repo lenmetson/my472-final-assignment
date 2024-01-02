@@ -948,7 +948,7 @@ if (file.exists("data/hoc_library_scrape_raw.Rds")) {
   saveRDS(cons, "data/hoc_library_scrape_raw_extra.Rds")
 
   cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
-  cons_hoc <- rbind(cons_hoc, cons)
+  cons <- rbind(cons_hoc, cons)
 
   saveRDS(cons, "data/hoc_library_scrape_raw.Rds")
 
@@ -962,7 +962,6 @@ if (file.exists("data/hoc_library_scrape_raw.Rds")) {
 ```{r clean-constituency-data}
 
 # Clean dashboard data
-# FIXME 
 # PICKUP
 cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
 
