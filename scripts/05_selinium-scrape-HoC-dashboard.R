@@ -18,6 +18,14 @@ cons <- cons %>%
     median_house_price_hoclib23 = NA
   )
 
+# Check whether constituencies have already been pulled and saved. If they have, filter out these so they are not re-scraped.
+# If running for the first time, you will not be able to read in cons_hoc, so the filtering is skipped.
+if (file.exists("data/hoc_library_scrape_raw.Rds")) {
+  cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
+  cons$check_already_pulled <- cons$cons_name %in% cons_hoc$cons_name
+  cons <- cons %>% filter(check_already_pulled == FALSE)
+} 
+
 # Set selinium browser
 rD <- rsDriver(browser=c("firefox"), verbose = F, port = netstat::free_port(random = TRUE), chromever = NULL) 
 driver <- rD$client
@@ -225,5 +233,16 @@ driver$close()
 rD$server$stop()
 system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
 
-# Save output
-saveRDS(cons, "data/hoc_library_scrape_raw.Rds")
+if (file.exists("data/hoc_library_scrape_raw.Rds")) {
+  cons$check_already_pulled <- NULL
+  saveRDS(cons, "data/hoc_library_scrape_raw_extra.Rds")
+
+  cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
+  cons_hoc <- rbind(cons_hoc, cons)
+
+  saveRDS(cons, "data/hoc_library_scrape_raw.Rds")
+
+} else {
+  # Save output
+  saveRDS(cons, "data/hoc_library_scrape_raw.Rds")
+}
