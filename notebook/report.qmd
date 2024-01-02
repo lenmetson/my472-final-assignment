@@ -87,7 +87,7 @@ db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
 ```
 
-# Introduciton 
+# Introduction 
 
 Parliamentary questions are a critical part of how MPs represent their constituency. Therefore, I focus on asking what factors about the constituency an MP represents drives their focus on economic or health and welfare topics in 2023. I operationalise “focus” as the proportion of questions a member asks about a given topic. 
 
@@ -1059,16 +1059,9 @@ dbWriteTable(db, "parties", parties_df, overwrite = TRUE)
 
 ```
 
-This resulted in 4 tables in my local database:
-
-1. questions
-2. members
-3. constituencies 
-4. parties 
-
 ## Measurement
 
-TODO write up measurement
+To measure whether a question is about (1) economic issues or (2) health and welfare, I use a simple dictionary approach. Whilst limited compared to machine learning classification approaches, dictionary string matching was more feasible for this project as it does not require expert labelling of a training set.
 
 ```{r measure-topics}
 
@@ -1147,6 +1140,17 @@ dbWriteTable(db, "question_topics", question_text, overwrite = TRUE)
 
 ``` 
 
+I wrote out the results of my measuremnt to a table called `question_topics`. 
+
+## Final database
+
+This resulted in 5 tables in my local database:
+
+1. questions
+2. members
+3. constituencies 
+4. parties 
+5. question_topics
 
 ```{r check-tables}
 dbListTables(db)
@@ -1197,9 +1201,6 @@ member_qs <- dbGetQuery(db,
     
     LEFT JOIN parties ON parties.party_id = members.latest_party_id
 
-   /* WHERE 
-      parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party') */
-
   GROUP BY members.member_id
   ") %>%
   replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
@@ -1241,6 +1242,8 @@ grid.arrange(members_econ, members_health, nrow = 1)
 ### Geography
 
 ```{r geog-plot, eval = TRUE}
+
+# TODO remove party restriction, add national restriction 
 
 geog_data <- dbGetQuery(db,
   "
