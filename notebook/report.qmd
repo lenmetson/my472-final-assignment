@@ -439,8 +439,7 @@ saveRDS(members, "data/members_raw.Rds")
 ```
 
 ```{r clean-members-pull}
-# PICKUP  
-# TODO rerun after written Qs added 
+
 members <- readRDS("data/members_raw.Rds") 
 
 # Replace "null" values with NA so they are kept in the structure of the list
@@ -478,7 +477,7 @@ members_df <- members_df %>%
 # However, characteristics do not change daily so there is lots of repitition.
 # The following code groups MPs by the mutable variables (i.e. unique combinations, 
 # then summarises the earliest valid, and the latest valid date)
-# Before this function there are 4225 observations, and after, only 479.  
+# Before this function there are 4225 observations, and after, only 482.  
 
 members_df_grouped <- members_df %>%
   group_by( # Group by all variables apart from date
@@ -502,7 +501,7 @@ members_df_grouped <- members_df %>%
     member_date_valid_max = as.character(member_date_valid_max)
   )
 
-# unique(members_df$member_id) %>% length() # This returns 474, indicating there are changes 
+#unique(members_df$member_id) %>% length() # This returns 474, indicating there are changes 
 
 dbWriteTable(db, "members", members_df_grouped, overwrite = TRUE)
 
@@ -510,9 +509,7 @@ dbWriteTable(db, "members", members_df_grouped, overwrite = TRUE)
 
 
 ```{r pull-constituency-endpoints}
-# This code can also be run by sourcing scripts/03_pull-constituency-endpoints.R 
-
-# TODO rerun after written Qs added 
+# This code can also be run by sourcing scripts/04_pull-constituency-endpoints.R 
 
 MPs <- dbGetQuery(db,
   "
@@ -709,7 +706,9 @@ saveRDS(constituencies, "data/constituencies_api_raw.Rds")
 
 ```{r selenium-scrape-hoc-dashboard}
 
-# TODO rerun after written Qs added # MAKE SURE TO CHECK DIFFS AND ONLY RUN FOR NEW SEATS (hopefully there won't be that many)
+# PICKUP 
+
+# TODO rerun after api endpoints collected # MAKE SURE TO CHECK DIFFS AND ONLY RUN FOR NEW SEATS (hopefully there won't be that many)
 
 # This code can also be run by sourcing scripts/04_selinium-scrape-HoC-dashboard.R 
 
@@ -732,6 +731,13 @@ cons <- cons %>%
     uc_claimants_hoclib23 = NA, 
     median_house_price_hoclib23 = NA
   )
+
+# Check whether constituencies have already been pulled and saved.
+# If running for the first time, you will not be able to read in cons_hoc.
+# TODO Therefore, comment the 3 following lines out if running for the first time.
+cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
+cons$check_already_pulled <- cons$cons_name %in% cons_hoc$cons_name
+cons <- cons %>% filter(check_already_pulled == FALSE)
 
 # Set selinium browser
 rD <- rsDriver(browser=c("firefox"), verbose = F, port = netstat::free_port(random = TRUE), chromever = NULL) 
@@ -1168,8 +1174,8 @@ member_qs <- dbGetQuery(db,
     
     LEFT JOIN parties ON parties.party_id = members.latest_party_id
 
-    WHERE 
-      parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
+   /* WHERE 
+      parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party') */
 
   GROUP BY members.member_id
   ") %>%
@@ -1178,11 +1184,12 @@ member_qs <- dbGetQuery(db,
 members_econ <- member_qs %>%
   filter(econ_prop > 0) %>%
   arrange(-econ_prop) %>%
-  slice_head(n = 20) %>%
+  slice_head(n = 10) %>%
   ggplot(aes(x = reorder(MP, econ_prop), y = econ_prop)) +
   geom_bar(aes(fill = paste0("#", party_col)), stat = "identity", color = "black", alpha = 0.7) +
   coord_flip() +
   scale_fill_identity() +
+  labs(title = "Questions about economic issues", x = "", y= "Proportion of total questions") +
   theme(
     panel.background = element_rect(fill = "white", color = "black"),
     panel.grid = element_blank(),
@@ -1193,18 +1200,19 @@ members_econ <- member_qs %>%
 members_health <- member_qs %>%
   filter(health_welf_prop > 0) %>%
   arrange(-health_welf_prop) %>%
-  slice_head(n = 20) %>%
+  slice_head(n = 10) %>%
   ggplot(aes(x = reorder(MP, health_welf_prop), y = health_welf_prop)) +
   geom_bar(aes(fill = paste0("#", party_col)), stat = "identity", color = "black", alpha = 0.7) +
   coord_flip() +
   scale_fill_identity() +
+  labs(title = "Questions about health and welfare issues", x = "", y= "Proportion of total questions") +
   theme(
     panel.background = element_rect(fill = "white", color = "black"),
     panel.grid = element_blank(),
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 
-
+grid.arrange(members_econ, members_health, nrow = 1)
 ```
 
 ### Time 
@@ -1237,11 +1245,11 @@ time_data <- dbGetQuery(db,
 time_data$date_asked <- as.Date(time_data$date_asked)
 
 time_econ <- time_data %>%
-    ggplot(aes(x=date_asked, y = econ_count)) +
+    ggplot(aes(x=date_asked, y = econ_prop)) +
     
-    geom_vline(xintercept = as.Date("2023-03-15"), colour= "red", alpha = 0.15, size = 2.5) + # Spring budget
-    geom_vline(xintercept = as.Date("2023-11-22"), colour= "red", alpha = 0.15, size = 2.5) + # Autumn statement
-    geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
+    # geom_vline(xintercept = as.Date("2023-03-15"), colour= "red", alpha = 0.15, size = 2.5) + # Spring budget
+    # geom_vline(xintercept = as.Date("2023-11-22"), colour= "red", alpha = 0.15, size = 2.5) + # Autumn statement
+    # geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
 
     geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
     geom_col(size=2) +
@@ -1255,9 +1263,9 @@ time_econ <- time_data %>%
 # Health and welfare 
 
 time_health <- time_data %>% 
-    ggplot(aes(x=date_asked, y = health_welf_count)) +
+    ggplot(aes(x=date_asked, y = health_welf_prop)) +
 
-    geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
+    # geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
     
     geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
     geom_col(size=2) +
