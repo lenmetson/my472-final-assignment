@@ -258,7 +258,7 @@ saveRDS(written_questions, "data/written_questions_2023.RDS")
 ```
 
 ```{r clean-questions}
-# PICKUP
+
 oral_questions <- readRDS("data/oral_questions_2023.RDS")
 
 
@@ -706,10 +706,6 @@ saveRDS(constituencies, "data/constituencies_api_raw.Rds")
 
 ```{r selenium-scrape-hoc-dashboard}
 
-# PICKUP 
-
-# TODO rerun after api endpoints collected # MAKE SURE TO CHECK DIFFS AND ONLY RUN FOR NEW SEATS (hopefully there won't be that many)
-
 # This code can also be run by sourcing scripts/04_selinium-scrape-HoC-dashboard.R 
 
 # NOTE cons_hoc returns 610 not 472 because it was pulled based on constituencies in all oral questions, not just 2023
@@ -966,7 +962,8 @@ if (file.exists("data/hoc_library_scrape_raw.Rds")) {
 ```{r clean-constituency-data}
 
 # Clean dashboard data
-
+# FIXME 
+# PICKUP
 cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
 
 # pop numeric 
