@@ -1068,7 +1068,16 @@ This resulted in 4 tables in my local database:
 
 # Analysis 
 
+TODO decide whether to restrict analysis to england and wales, if so add filter to queries
+TODO remove party plots 
+TODO remove party restrictions if remove party plots 
+
+CANDO random forests (but won't have words)
+
 ## Measure topics 
+
+TODO write up measurement
+
 
 ```{r measure-topics}
 
@@ -1229,198 +1238,6 @@ members_health <- member_qs %>%
 grid.arrange(members_econ, members_health, nrow = 1)
 ```
 
-### Time 
-
-```{r time-plot, eval = FALSE}
-
-# Query database to return a table with the count of questions asked on each day 
-
-time_data <- dbGetQuery(db, 
-  "
-  SELECT 
-    questions.question_tabled_when AS date_asked,
-
-    SUM(question_topics.is_econ) AS econ_count,
-    SUM(question_topics.is_health_welf) AS health_welf_count, 
-    COUNT(*) AS total_question_count,
-    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
-    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop
-    
-  FROM questions
-    JOIN question_topics ON questions.question_id = question_topics.question_id
-
-  GROUP BY 
-    questions.question_tabled_when
-  ")  %>%
-  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
-
-# Econ 
-
-time_data$date_asked <- as.Date(time_data$date_asked)
-
-time_econ <- time_data %>%
-    ggplot(aes(x=date_asked, y = econ_prop)) +
-    
-    # geom_vline(xintercept = as.Date("2023-03-15"), colour= "red", alpha = 0.15, size = 2.5) + # Spring budget
-    # geom_vline(xintercept = as.Date("2023-11-22"), colour= "red", alpha = 0.15, size = 2.5) + # Autumn statement
-    # geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
-
-    geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
-    geom_col(size=2) +
-    
-    theme(
-      panel.background = element_rect(fill = "white", color = "black"),
-      panel.grid = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-
-# Health and welfare 
-
-time_health <- time_data %>% 
-    ggplot(aes(x=date_asked, y = health_welf_prop)) +
-
-    # geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
-    
-    geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
-    geom_col(size=2) +
-    
-    theme(
-      panel.background = element_rect(fill = "white", color = "black"),
-      panel.grid = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-
-grid.arrange(time_econ, time_health, nrow = 1)
-
-```
-
-```{r time-plot-by-party, eval = FALSE}
-
-time_data_by_party <- dbGetQuery(db, 
-  "
-  SELECT 
-    questions.question_tabled_when AS date_asked,
-    parties.party_name, 
-
-    SUM(question_topics.is_econ) AS econ_count,
-    SUM(question_topics.is_health_welf) AS health_welf_count, 
-    COUNT(*) AS total_question_count,
-    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
-    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop
-    
-  FROM questions
-    JOIN question_topics ON questions.question_id = question_topics.question_id
-    JOIN members ON questions.asking_member = members.member_id
-    JOIN parties ON members.latest_party_id = parties.party_id
-
-  WHERE 
-    parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
-  
-  GROUP BY 
-    questions.question_tabled_when, parties.party_name
-  ")  %>%
-  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
-
-time_data_by_party$date_asked <- as.Date(time_data_by_party$date_asked)
-
-# Econ 
-
-time_party_econ <- time_data_by_party %>% 
-  #filter(party_name == "Conservative" | party_name == "Labour") %>%
-    ggplot(aes(x=date_asked, y = econ_count)) +
-    
-    geom_vline(xintercept = as.Date("2023-03-15"), colour= "red", alpha = 0.15, size = 2.5) + # Spring budget
-    geom_vline(xintercept = as.Date("2023-11-22"), colour= "red", alpha = 0.15, size = 2.5) + # Autumn statement
-    geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
-    
-    geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
-    geom_col(size=2) +
-    
-    facet_wrap(~party_name, ncol=1) +
-    theme(
-      panel.background = element_rect(fill = "white", color = "black"),
-      panel.grid = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-
-# Health and welfare 
-
-time_party_health <- time_data_by_party %>% 
-  #filter(party_name == "Conservative" | party_name == "Labour") %>%
-    ggplot(aes(x=date_asked, y = health_welf_count)) +
-
-    geom_vline(xintercept = as.Date("2023-05-18"), colour= "blue", alpha = 0.15, size = 2.5) + #  Local elections
-    
-    geom_smooth(method = "loess", alpha = 0.1, color = "black", linetype = "dotted") +
-    geom_col(size=2) +
-    
-    facet_wrap(~party_name, ncol=1) +
-    theme(
-      panel.background = element_rect(fill = "white", color = "black"),
-      panel.grid = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-
-grid.arrange(time_party_health, time_party_econ, nrow = 1)
-```
-
-### Party 
-
-```{r party-plots, eval = FALSE}
-party_data <- dbGetQuery(db, 
-  "
-  SELECT 
-    parties.party_name,
-
-    SUM(question_topics.is_econ) AS econ_count,
-    SUM(question_topics.is_health_welf) AS health_welf_count, 
-    COUNT(*) AS total_question_count,
-    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
-    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
-
-    parties.party_colour 
-
-    FROM questions 
-      JOIN question_topics ON questions.question_id = question_topics.question_id
-      JOIN members ON questions.asking_member = members.member_id
-      JOIN parties ON members.latest_party_id = parties.party_id
-    
-    WHERE 
-      parties.party_name IN ('Conservative', 'Labour', 'Liberal Democrat', 'Green Party')
-    
-    GROUP BY parties.party_name
-  ")  %>%
-  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
-
-party_data$party_colour <- paste0("#", party_data$party_colour)
-
-# Econ 
-party_econ <- party_data %>%
-  ggplot() +
-  geom_bar(aes(x=reorder(party_name, -econ_prop), y=econ_prop, fill=party_colour), stat = "identity", color = "black") +
-  scale_fill_identity() +
-  labs(title = "Proportion of questions on Economic issues by party", x = "", y="Proportion of questions classified as 'economic'") +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"),
-    panel.grid = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-
-# Health and welfare
-party_health <- party_data %>%
-  ggplot() +
-  geom_bar(aes(x=reorder(party_name, -health_welf_prop), y=health_welf_prop, fill=party_colour), stat = "identity", color = "black") +
-  scale_fill_identity() +
-  labs(title = "Proportion of questions on Health and Welfare issues by party", x = "", y="Proportion of questions classified as 'health and welfare'") +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"),
-    panel.grid = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-
-grid.arrange(party_econ, party_health)
-```
-
 ### Geography
 
 ```{r geog-plot, eval = TRUE}
@@ -1545,13 +1362,11 @@ db_table_check("question_topics")
 db_table_check("parties")
 ```
 
-TODO
+TODO analysis 
 Plot 
  - average marginality over past 4 elections 
  - UC claimants 
  - Median house price 
- - Constituency population density? 
- - Region/nation
 
 ```{r, eval = TRUE}
 # Disconnect from local database
