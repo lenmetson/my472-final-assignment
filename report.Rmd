@@ -10,7 +10,7 @@ output:
 
 Link to public GitHub repository: [https://github.com/lenmetson/my472-final-assignment](https://github.com/lenmetson/my472-final-assignment).
 
-Words: 722
+Words: 727
 
 ```{r, include = FALSE} 
 knitr::opts_chunk$set(
@@ -22,10 +22,15 @@ knitr::opts_chunk$set(
     fig.width=8, fig.height=7,
     fig.align='center') 
 
+# Please note, all data collection chunks are set to eval=FALSE. 
+# They only need to be run once to populate the local relational database.
+# To knit this document, chang eval = FALSE to eval = TRUE. 
+# Please note, this will take a long time to run because of the scraping code
+
 ```
 
 ```{r basic-setup, eval = TRUE}
-# PICKUP
+
 # Can also be run by sourcing scripts/00_setup.R
 
 # Define function to install or load packages
@@ -57,7 +62,7 @@ load_packages(c(
     "gridExtra"
     ))
 
-replace_null_with_na <- function(x) {
+replace_null_with_na <- function(x) { # NOTE function adapted from ChatGPT output
   if (is.list(x)) { # Checks for whether the item is a sublist 
     lapply(x, replace_null_with_na) # if it is, apply the function for each of the elements within the sublist
   } else { # If it isn't, simply apply the main function
@@ -65,6 +70,8 @@ replace_null_with_na <- function(x) {
   }
 } 
 
+
+# When flattening the API responses, we replace null values with character "NA" values (using the function above), this function converts them back to NAs that R can recognise: 
 replace_na_chr <- function(df) { # NOTE function adapted from ChatGPT output
   df <- df %>%
     mutate(across(where(is.character), ~na_if(., "NA")))
@@ -83,6 +90,7 @@ db_table_check <- function(table){
   return(result)
 }
 
+# Connect to local relational database
 db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
 ```
@@ -107,6 +115,7 @@ However, I did not want to write out a table with data on each MP for every day 
 
 # This code can also be run by sourcing scripts/01_pull-oral-questions.R 
 
+# Define function to construct request URL and execute request
 GET_qs <- function(endpoint_url, n_skip = 0) {
   url <- paste0(
     endpoint_url,
@@ -117,12 +126,12 @@ GET_qs <- function(endpoint_url, n_skip = 0) {
 
   response <-
     httr::GET(url) %>%
-    httr::content("parsed") # Use :: because tm masks content 
+    httr::content("parsed") # Use :: because the tm package masks content 
 
   return(response)
 }
 
-# Define functions to pull all questions
+# Define function to pull all oral questions
 
 pull_all_oral_qs <- function(endpoint_url){
 
@@ -132,10 +141,11 @@ pull_all_oral_qs <- function(endpoint_url){
     "?parameters.answeringDateStart=2023-01-01&parameters.answeringDateEnd=2023-12-31", # Limit to 2023
     "&parameters.take=1")) %>%
     httr::content("parsed")
+
   n <- n_resp$PagingInfo$GlobalTotal
 
   # Questions can be pulled in batches of 100,
-  # calculate how many time we will have to pull
+  # calculate how many times we will have to pull
   n_loops <- ceiling(n / 100)
 
   print(paste0("LOG | ", Sys.time(), " | Oral question pull starting"))
@@ -166,10 +176,12 @@ pull_all_oral_qs <- function(endpoint_url){
   return(response)
 }
 
-## APPLY FUNCTIONS
+## Apply pull oral question function 
 
 oral_questions <- pull_all_oral_qs(
   "https://oralquestionsandmotions-api.parliament.uk/oralquestions/list")
+
+# Save output to RDS
 
 saveRDS(oral_questions, "data/oral_questions_2023.RDS")
 
@@ -178,6 +190,8 @@ saveRDS(oral_questions, "data/oral_questions_2023.RDS")
 ```{r pull-written-questions}
 
 # This code can also be run by sourcing scripts/02_pull-written-questions.R
+
+# Define function to construct request URL and execute request
 
 GET_qs_written <- function(endpoint_url, n_skip = 0) {
   url <- paste0(
@@ -195,8 +209,12 @@ GET_qs_written <- function(endpoint_url, n_skip = 0) {
   return(response)
 }
 
+# Define function to pull all written questions 
+
 pull_all_written_qs <- function(endpoint_url){
   
+
+  # Calculate how many questions are in the end point
   n_resp <- httr::GET(
     paste0(
       endpoint_url, 
@@ -248,6 +266,7 @@ saveRDS(written_questions, "data/written_questions_2023.RDS")
 
 oral_questions <- readRDS("data/oral_questions_2023.RDS")
 
+# Convert list into dataframe
 
 for (i in seq_along(oral_questions)) { 
    # remove sublists, otherwise names do not match
@@ -269,6 +288,7 @@ rm(oral_question_df2, i)
 ### Clean dataframes and merge into one table ####
 
 oral_question_df <- oral_question_df %>%
+  # Select a subset of variables to keep
   select(
     question_id = Id,
     question_text = QuestionText,
@@ -298,11 +318,12 @@ for (i in seq_along(written_questions)) {
   # Remove links sublist by keeping only "value" 
   written_questions[[i]] <- written_questions[[i]]$value
 
-  # remove sublists, otherwise names do not match
+  # remove sublists, otherwise names do not match.
   written_questions[[i]]$groupedQuestions <- NULL
   written_questions[[i]]$attachments <- NULL
   written_questions[[i]]$groupedQuestionsDates <- NULL
-  # Replace nulls with NAs
+
+  # Replace nulls with NAs so lengths of lists are constant
   written_questions[[i]] <- replace_null_with_na(written_questions[[i]])
 
   if (i == 1){
@@ -311,7 +332,8 @@ for (i in seq_along(written_questions)) {
     written_question_df2 <- data.frame(written_questions[[i]])
     written_question_df <- rbind(written_question_df, written_question_df2)
   }
-
+  
+  # Print progress message
   print(paste0(i, " of ", length(written_questions)))
 }
 
@@ -319,6 +341,7 @@ rm(written_question_df2, i)
 
 written_question_df <- written_question_df %>%
   select(
+  # Select a subset of variables to keep
     question_id = id,
     question_text = questionText,
     asking_member = askingMemberId,
@@ -355,7 +378,8 @@ pull_members <- function(base_url, df) {
 
   for (i in seq_along(df$member_id)) {
 
-    url <- paste0( # Build request URL
+    # Build request URL
+    url <- paste0( 
       base_url, "/",
       df$member_id[i],
       "?detailsForDate=",
@@ -386,6 +410,11 @@ pull_members <- function(base_url, df) {
   return(response)
 }
 
+# As MP characteristics - e.g. party affiliation - change over time, we need to 
+# ensure the information we pull is valid for the day of the question.
+# The approach I used was to make a request for each unique day-MP pairs. 
+# This can later be summarised into ranges for which any unique set of MP covariates are valid.
+
 # Query question table to get MP-date pairs
 
 members_asking <- dbGetQuery(db,
@@ -404,7 +433,7 @@ ministers_answering <- dbGetQuery(db,
     question_tabled_when
   FROM questions
   ")  %>%
-  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
+  replace_na_chr() 
 
 q_parameters <- rbind(members_asking, ministers_answering)
 
@@ -493,16 +522,19 @@ dbWriteTable(db, "members", members_df_grouped, overwrite = TRUE)
 
 # This code can also be run by sourcing scripts/04_pull-constituency-endpoints.R 
 
+# Query members table
 MPs <- dbGetQuery(db,
   "
   SELECT * 
   FROM members 
   ")  %>%
-  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
+  replace_na_chr()
 
+#Define a list of unique constituencies we want to pull information for 
 constituencies <- MPs$latest_constituency %>% 
   unique()
 
+# Initialise an empty dataframe 
 constituencies <- 
   data.frame(
     constituency_id = constituencies
@@ -565,6 +597,7 @@ pull_const_info <- function(cons_id) {
     return(basic_info)
 }
 
+# Write out to the dataframe 
 for(i in seq_along(constituencies$constituency_id)) {
   response <- pull_const_info(constituencies$constituency_id[i])
   response <- response[[1]]
@@ -592,6 +625,8 @@ get_cons_shapefile <- function(cons_id) {
   return(shapefile)
 }
 
+# Write out to the dataframe 
+
 for(i in seq_along(constituencies$constituency_id)) {
   response <- get_cons_shapefile(constituencies$constituency_id[i])
   response <- response[[1]]
@@ -615,6 +650,8 @@ get_cons_election_results <- function(cons_id) {
 
   return(results)
 }
+
+# Write out to the dataframe 
 
 for (i in seq_along(constituencies$constituency_id)) {
   response <- get_cons_election_results(constituencies$constituency_id[i])
@@ -957,19 +994,19 @@ if (file.exists("data/hoc_library_scrape_raw.Rds")) {
 
 cons_hoc <- readRDS("data/hoc_library_scrape_raw.Rds")
 
-# pop numeric 
+# Change population to a number
 cons_hoc$population_hoclib23 <- cons_hoc$population_hoclib23 %>%
   str_remove_all(",") %>%
   as.numeric()
 
-# area numeric
+# Change area to a number
 
 cons_hoc$area_hoclib23 <- cons_hoc$area_hoclib23 %>%
   str_extract(".*(?=\\s*sq\\.\\s*km)") %>%
   str_remove_all(",") %>%
   as.numeric()
 
-# age perc
+# Change age variables to numbers
 
 cons_hoc$age_0_29_hoclib23 <- cons_hoc$age_0_29_hoclib23 %>%
   str_remove_all("%") %>%
@@ -986,13 +1023,13 @@ cons_hoc$age_65_plus_hoclib23 <- cons_hoc$age_65_plus_hoclib23 %>%
   as.numeric()
 cons_hoc$age_65_plus_hoclib23 <- cons_hoc$age_65_plus_hoclib23/100 # Convert to proportion 
 
-# uc numeric
+# Change universal credit variable to numbers
 
 cons_hoc$uc_claimants_hoclib23 <- cons_hoc$uc_claimants_hoclib23 %>%
   str_remove_all(",") %>%
   as.numeric()
 
-# house price numeric
+# Change house price variable to numbers
 
 cons_hoc$median_house_price_hoclib23 <- cons_hoc$median_house_price_hoclib23 %>%
   str_remove_all(",|£") %>%
@@ -1014,6 +1051,10 @@ dbWriteTable(db, "constituencies", cons, overwrite = TRUE)
 ```
 
 ```{r pull-party-info}
+
+# Pull party information to get party names and abbreviations. 
+# We use this when matching an MPs current party with previous election results. 
+# Party colours could also be used to colour plots with accruate colours. 
 
 response <- httr::GET("https://members-api.parliament.uk/api/Parties/GetActive/1") %>%
   httr::content("parsed")
@@ -1064,7 +1105,7 @@ question_text <- dbGetQuery(db,
   FROM questions
   "
 )  %>%
-  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
+  replace_na_chr()
 
 # Measure 
 
@@ -1080,10 +1121,11 @@ question_text$question_text <- question_text$question_text %>%
 
 # Define dictionaries 
 
-# NOTE Citation: Albugh, Quinn, Julie Sevenans and Stuart Soroka. 2013. Lexicoder Topic Dictionaries, June 2013 versions, McGill University, Montreal, Canada.
 
-# Download Lexicon Policy Topic Dictionaries 
-if (!file.exists("data/lexicoder_dictionaries/LTDjun2013/policy_agendas_english.lcd")) {
+
+# Download Lexicon Policy Topic Dictionaries # NOTE Citation: Albugh, Quinn, Julie Sevenans and Stuart Soroka. 2013. Lexicoder Topic Dictionaries, June 2013 versions, McGill University, Montreal, Canada.
+
+if (!file.exists("data/lexicoder_dictionaries/LTDjun2013/policy_agendas_english.lcd")) { # Check whether the file has already been downloaded
 
   dir.create("data/lexicoder_dictionaries")
   download.file(
@@ -1094,13 +1136,17 @@ if (!file.exists("data/lexicoder_dictionaries/LTDjun2013/policy_agendas_english.
     "data/lexicoder_dictionaries/policy_topics.zip", 
     exdir = "data/lexicoder_dictionaries", overwrite = TRUE)
 }
+
+# These files are stored in a propeitrary file format .lcd. However, they are actually XML files. 
+# Therefore, we can parse them using R's XML package if we read the file in as a raw string 
+# then parse it. 
+# After parsing we can conver the XML file into a list of dictionaries. 
   
-  # NOTE ChatGPT used to write code that parses XML 
+# NOTE ChatGPT used to write code that parses XML 
 
 parsed_string <- readLines("data/lexicoder_dictionaries/LTDjun2013/policy_agendas_english.lcd") %>%
   paste(collapse = "\n") %>%
   xmlTreeParse(useInternalNodes = TRUE) 
-
 
 extract_pnodes <- function(cnode) {
   sapply(xpathApply(cnode, "./pnode"), function(pnode) {
@@ -1126,26 +1172,29 @@ for (item in dictionaries_output) {
 
 rm(cnode_name, dictionaries_output, item, parsed_string, pnodes, raw_string)
 
+# Select relevant subdictionaries and make terms into a single list
 
-econ_dict <- c( # Select relevant dictionaries 
-  dictionaries$macroeconomics,
-  dictionaries$finance,
-  dictionaries$foreign_trade
+econ_dict <- c( # Select relevant dictionaries.  
+  dictionaries$macroeconomics, # Contains 84 terms 
+  dictionaries$finance, # Contains 54 terms 
+  dictionaries$foreign_trade # Contains 29 terms
   )
+
+health_welf_dict <- c( # Select relevant dictionaries 
+  dictionaries$healthcare, # Contains 128 terms
+  dictionaries$social_welfare # Contains 23 terms 
+)
 
 # Convert to regex string and convert to lower for matching
 econ_dict <- econ_dict %>%
   paste(collapse="|") %>%
   tolower()
 
-health_welf_dict <- c( # Select relevant dictionaries 
-  dictionaries$healthcare, 
-  dictionaries$social_welfare
-)
-
 health_welf_dict <- health_welf_dict %>%
   paste(collapse="|") %>%
   tolower()
+
+# Use str_detect to detect any occurances of the strings in the dictionary 
 
 question_text <- question_text %>%
   mutate(
@@ -1160,14 +1209,9 @@ question_text <- question_text %>%
       ifelse(
         str_detect(question_text, health_welf_dict), 1, 0)
   )
-
-mean(question_text$is_econ)
-mean(question_text$is_health_welf)
-
 dbWriteTable(db, "question_topics", question_text, overwrite = TRUE)
 
 ``` 
-
 I wrote out the results of my measuremnt to a table called `question_topics`. 
 
 ## Final database
@@ -1196,6 +1240,11 @@ $$
 This measure ranges from -1 to 1. A value of -1 indicates a perfect health and welfare slant – I.e. the MP only asks health & welfare questions -  and a value of 1 indicates a perfect economic slant. 
 
 ```{r read-in-analysis-data, eval = TRUE}
+
+# Query data base to construct analysis data
+# Once the database has been populated once, all analysis code can be run from here. 
+# This is where the Rmarkdown file knits from 
+
 analysis_df <- dbGetQuery(
   db, 
   "
@@ -1237,15 +1286,12 @@ analysis_df <- dbGetQuery(
   
   JOIN question_topics ON questions.question_id = question_topics.question_id
   
+  /* select row where date of question comes between the dates valid range */
   LEFT JOIN members ON questions.asking_member = members.member_id
     /* this has to be joined before anything */ 
     /* from members to avoid dropping rows */
-    /* select row where date of question comes between the dates valid range */
-
     AND REPLACE(questions.question_tabled_when, '-', '') 
-    /* no date class in SQLite, so convert to string*/
-    
-      BETWEEN REPLACE(members.member_date_valid_min, '-', '') 
+      BETWEEN REPLACE(members.member_date_valid_min, '-', '') /* no date class in SQLite, so convert to string*/
         AND REPLACE(members.member_date_valid_max, '-', '')
   
   LEFT JOIN constituencies ON members.latest_constituency = constituencies.constituency_id
@@ -1254,7 +1300,7 @@ analysis_df <- dbGetQuery(
   GROUP BY members.member_id
   "
   )  %>%
-  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
+  replace_na_chr() 
 
 # Convert majority variables into +/- depending on whether current MP won or lost  
 analysis_df <- analysis_df %>%
@@ -1288,12 +1334,14 @@ analysis_df <- analysis_df %>%
   ) %>%
   select(-c(last_election_1_majority, last_election_2_majority, last_election_3_majority, last_election_4_majority, last_election_1_electorate, last_election_2_electorate,last_election_3_electorate,last_election_4_electorate))
 
-# Calcualte mean marginality 
+# Calculate mean marginality 
 analysis_df <- analysis_df %>%  
   mutate(
     mean_marginality = rowMeans(select(., starts_with("marginality_")))
   ) %>%
   select(-c(marginality_1, marginality_2, marginality_3, marginality_4))
+
+# Calculate slant variable 
 
 analysis_df <- analysis_df %>%
   mutate(econ_slant = econ_prop - health_welf_prop)
@@ -1313,6 +1361,9 @@ hist <- analysis_df %>%
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
     panel.grid = element_blank())
+
+
+# Add axis labels # NOTE: based on https://stackoverflow.com/questions/12409960/ggplot2-annotate-outside-of-plot and https://stackoverflow.com/questions/10836843/ggplot2-plot-area-margins
 
 hist +  
   ggplot2::annotate("segment", y =  -20 , yend = -20, x = -0.15, xend = -0.95, arrow = arrow()) + 
@@ -1358,7 +1409,7 @@ geog_data <- dbGetQuery(db,
   GROUP BY constituencies.cons_name
   "
   )  %>%
-  replace_na_chr() %>% # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
+  replace_na_chr() %>% 
   filter(!is.na(con_shapefile)) # Drop constituencies without shapefiles
  
 geog_data <- geog_data %>%
@@ -1461,8 +1512,6 @@ plot_density <- analysis_df %>%
     aspect.ratio = 1, 
     panel.grid = element_blank()
   ) 
-
-# Add axis labels # NOTE: based on https://stackoverflow.com/questions/12409960/ggplot2-annotate-outside-of-plot and https://stackoverflow.com/questions/10836843/ggplot2-plot-area-margins
 
 plot_density +  
   geom_text(
@@ -1586,8 +1635,3 @@ Albugh, Quinn, Julie Sevenans and Stuart Soroka. 2013. Lexicoder Topic Dictionar
 ```{r ref.label=knitr::all_labels(), echo=TRUE} 
 
 ```
-
-```{r, eval = TRUE}
-sessionInfo()
-```
-

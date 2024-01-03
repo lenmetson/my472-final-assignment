@@ -17,19 +17,35 @@ knitr::opts_chunk$set(
 
 ```
 
-Or the code can be run by running each code chunk in order within the [markdown file](/notebook/report.qmd). 
+Or the code can be run by running each code chunk in order within the [markdown file](report.Rmd). 
 
-## File structure 
+## Untracked files
 
-The folder `data/` contains untracked data files. It is populated as the code runs. After running all code, it will include the following files: 
+The folder `data/` contains untracked data files. 
+
+The data file is populated as the code runs. You do not need to download any files manually.  After running all code, the data file should include the following files: 
 
 ```
-|- data 
-|-- constituencies_api_raw.Rds
-|-- hoc_library_scrape_raw.Rds
-|-- members_raw.Rds
-|-- oral_questions_2023.RDS
-|-- parliament_database.sqlite 
-|-- placeholder.md
-|-- written_questions_2023.RDS
+|-- data 
+    |-- lexicoder_dictionaries
+        |-- _MACOSX
+        |-- LTDjun2013
+            |-- policy_agendas_english.lcd
+        |-- policy_topics.zip
+    |-- whole_UK_shapefile
+        |-- Data
+            |-- GB 
+                |-- westminster_const_region.dbf
+                |-- westminster_const_region.prj
+                |-- westminster_const_region.shp
+                |-- westminster_const_region.shx
+        |-- OS_zip.zip
+    |-- parliament_database.sqlite 
+    |-- constituencies_api_raw.Rds
+    |-- hoc_library_scrape_raw.Rds
+    |-- members_raw.Rds
+    |-- oral_questions_2023.RDS
+    |-- written_questions_2023.RDS
+    |-- placeholder.md
+
 ```
