@@ -14,7 +14,8 @@ knitr::opts_chunk$set(
     echo = FALSE, 
     eval = FALSE,
     message = FALSE, 
-    warning = FALSE)
+    warning = FALSE, 
+    error = FALSE)
 
 ```
 
@@ -1163,12 +1164,13 @@ db_table_check("question_topics")
 
 # Analysis 
 
-_
-$ econ\_slant = \frac{N (\text{economic questions})}{\text{N questions}} - \frac{N(\text{health & welfare questions})}{\text{N questions}}  $
+$$ 
+econ\_slant = \frac{N (economic)}{N(questions)} - \frac{N(health\_welfare)}{N(questions)}  
+$$
 
-### Geography
 
-```{r geog-plot, eval = TRUE}
+
+```{r prepare-map, eval = TRUE, include = FALSE}
 
 geog_data <- dbGetQuery(db,
   "
@@ -1249,17 +1251,19 @@ unlink(temp_geojson) # Delete temporary file
 geog_data <- cbind(geog_data, geog_sf)
 geog_data <- st_as_sf(geog_data) # Convert to SF
 
+```
+
+```{r plot-map, eval = TRUE}
 # Plot bias
 bias_map <- tm_shape(geog_data) +
   tm_sf(
     col = "econ_slant",
-    title = "Bias",
+    title = "Bias", # TODO change pallete
    legend.hist = TRUE 
   ) # +
   # tm_layout(legend.outside = TRUE) # BUG legend not moving outside 
 
 bias_map
-
 ```
 
 ```{r read-in-analysis-data, eval = TRUE}
@@ -1546,7 +1550,9 @@ plot_age_65 <- analysis_df %>%
     panel.background = element_rect(fill = "white", color = "black"), 
     panel.grid = element_blank())
 
-grid.arrange(plot_age_29, plot_age_30_64, plot_age_65, nrow=1)
+plot_age_29
+plot_age_30_64
+plot_age_65
 ```
 
 ```{r pop-density, eval = TRUE}
