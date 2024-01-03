@@ -1380,7 +1380,9 @@ if (!file.exists("data/whole_UK_shapefile/Data/GB/westminster_const_region.shp")
 options(timeout=600) # Takes some time to download so we need to increase the "timeout" setting
 
 dir.create("data/whole_UK_shapefile")
-download.file("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", "data/whole_UK_shapefile/OS_zip.zip") #
+
+httr::GET("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", write_disk("data/whole_UK_shapefile/OS_zip.zip", overwrite = TRUE)) #
+
 options(timeout=60) # Reset timeout
 
 # unzip # FIXME not working 
@@ -1393,9 +1395,6 @@ unzip(
     "Data/GB/westminster_const_region.shx"),
   exdir = "data/whole_UK_shapefile", 
   overwrite = TRUE)
-
-#file.remove("data/whole_UK_shapefile/OS_zip.zip")
-
 }
 
 basemap_sf <- 
