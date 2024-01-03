@@ -1172,13 +1172,9 @@ I wrote out the results of my measuremnt to a table called `question_topics`.
 
 ## Final database
 
-This resulted in 5 tables in my local database:
+A crow's foot diagram of the final local relational database is shown below: 
 
-1. questions
-2. members
-3. constituencies 
-4. parties 
-5. question_topics
+![Crow's foot diagram of local relational database](images/my472-crow-foot.svg)
 
 ```{r check-tables}
 dbListTables(db)
@@ -1380,8 +1376,7 @@ if (!file.exists("data/whole_UK_shapefile/Data/GB/westminster_const_region.shp")
 options(timeout=600) # Takes some time to download so we need to increase the "timeout" setting
 
 dir.create("data/whole_UK_shapefile")
-
-httr::GET("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", write_disk("data/whole_UK_shapefile/OS_zip.zip", overwrite = TRUE)) #
+httr::GET("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", write_disk("data/whole_UK_shapefile/OS_zip.zip", overwrite = TRUE))
 
 options(timeout=60) # Reset timeout
 
