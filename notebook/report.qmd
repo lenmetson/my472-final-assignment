@@ -299,7 +299,6 @@ for (i in seq_along(written_questions)) {
   written_questions[[i]]$groupedQuestions <- NULL
   written_questions[[i]]$attachments <- NULL
   written_questions[[i]]$groupedQuestionsDates <- NULL
-  # CANDO remove extra columns before making the df? 
   # Replace nulls with NAs
   written_questions[[i]] <- replace_null_with_na(written_questions[[i]])
 
@@ -1168,104 +1167,6 @@ $$
 econ\_slant = \frac{N (economic)}{N(questions)} - \frac{N(health\_welfare)}{N(questions)}  
 $$
 
-
-
-```{r prepare-map, eval = TRUE, include = FALSE}
-
-geog_data <- dbGetQuery(db,
-  "
-  SELECT 
-    constituencies.cons_name AS constituency, 
-    
-    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
-    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
-
-    constituencies.shapefile AS con_shapefile
-
-  FROM questions
-
-  LEFT JOIN members ON questions.asking_member = members.member_id
-    /* this has to be joined before anything */ 
-    /* from members to avoid dropping rows */
-    /* select row where date of question comes between the dates valid range */
-
-    AND REPLACE(questions.question_tabled_when, '-', '') 
-    /* no date class in SQLite, so convert to string*/
-    
-      BETWEEN REPLACE(members.member_date_valid_min, '-', '') 
-        AND REPLACE(members.member_date_valid_max, '-', '')
-
-  LEFT JOIN constituencies ON members.latest_constituency = constituencies.constituency_id
-
-  LEFT JOIN question_topics ON questions.question_id = question_topics.question_id
-
-  WHERE 
-    constituencies.region_nation_hoclib23 NOT IN ('Northern Ireland', 'Scotland')
-  
-  GROUP BY constituencies.cons_name
-  "
-  )  %>%
-  replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
- 
-geog_data <- geog_data %>%
-  mutate(econ_slant = econ_prop - health_welf_prop)
-
-# Add all constituencies as base map
-
-# To plot the base map, we want all constituencies, not just ones where questions have been asked.
-# We can get this from OSMaps
-# For reproducibility, the following code downloads and processes the data programmatically
-# To download manually, use https://osdatahub.os.uk/downloads/open/BoundaryLine
-
-# options(timeout=600) # Takes some time to download so we need to increase the "timeout" setting
-
-# dir.create("data/shpfile_allUK")
-# download.file("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", "data/shpfile_allUK/OS_zip.zip") #
-# options(timeout=60) # Reset timeout
-
-# # unzip 
-# unzip(
-#   "data/shpfile_allUK/OS_zip.zip", 
-#   files = c(
-#     "Data/GB/westminster_const_region.prj",
-#     "Data/GB/westminster_const_region.shp",
-#     "Data/GB/westminster_const_region.dbf",
-#     "Data/GB/westminster_const_region.shxmv",
-#     "Data/GB/westminster_const_region.*"),
-#   exdir = "data/shpfile_allUK", 
-#   overwrite = TRUE)
-
-# #file.remove("data/shpfile_allUK/OS_zip.zip")
-
-# basemap_sf <- st_read(dsn = "data/shpfile_allUK/Data/GB/westminster_const_region.shp") # FIXME base map shape files
-
-# Make shape files for constituencies in the database
-
-# NOTE: approach to converting from GeoJSON from chatGPT
-
-temp_geojson <- tempfile(fileext = ".geojson") # Create a temporary file
-writeLines(geog_data$con_shapefile, con = temp_geojson) # Write out to temporary file
-geog_sf <- st_read(dsn = temp_geojson) # Read the GeoJSON file into an sf object
-unlink(temp_geojson) # Delete temporary file
-
-geog_data <- cbind(geog_data, geog_sf)
-geog_data <- st_as_sf(geog_data) # Convert to SF
-
-```
-
-```{r plot-map, eval = TRUE}
-# Plot bias
-bias_map <- tm_shape(geog_data) +
-  tm_sf(
-    col = "econ_slant",
-    title = "Bias", # TODO change pallete
-   legend.hist = TRUE 
-  ) # +
-  # tm_layout(legend.outside = TRUE) # BUG legend not moving outside 
-
-bias_map
-```
-
 ```{r read-in-analysis-data, eval = TRUE}
 analysis_df <- dbGetQuery(
   db, 
@@ -1321,10 +1222,7 @@ analysis_df <- dbGetQuery(
   
   LEFT JOIN constituencies ON members.latest_constituency = constituencies.constituency_id
   LEFT JOIN parties ON parties.party_id = members.latest_party_id
-
-  WHERE 
-    constituencies.region_nation_hoclib23 NOT IN ('Northern Ireland', 'Scotland')
-
+  
   GROUP BY members.member_id
   "
   )  %>%
@@ -1372,6 +1270,135 @@ analysis_df <- analysis_df %>%
 analysis_df <- analysis_df %>%
   mutate(econ_slant = econ_prop - health_welf_prop)
 ```
+
+```{r hist, eval = TRUE}
+
+hist <- analysis_df %>%
+  ggplot() +
+  geom_vline(xintercept = 0)+
+  geom_histogram(aes(x=econ_slant), alpha = 0.7) +
+  xlim(-1,1)+
+  labs(title = "Distribution of sconomic slant") +
+  theme(
+    aspect.ratio = 1,
+    panel.background = element_rect(fill = "white", color = "black"), 
+    panel.grid = element_blank())
+
+hist
+
+```
+
+
+```{r prepare-map, eval = TRUE, include = FALSE}
+
+geog_data <- dbGetQuery(db,
+  "
+  SELECT 
+    constituencies.cons_name AS constituency, 
+    
+    SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
+    SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
+
+    constituencies.shapefile AS con_shapefile
+
+  FROM questions
+
+  LEFT JOIN members ON questions.asking_member = members.member_id
+    /* this has to be joined before anything */ 
+    /* from members to avoid dropping rows */
+    /* select row where date of question comes between the dates valid range */
+
+    AND REPLACE(questions.question_tabled_when, '-', '') 
+    /* no date class in SQLite, so convert to string*/
+    
+      BETWEEN REPLACE(members.member_date_valid_min, '-', '') 
+        AND REPLACE(members.member_date_valid_max, '-', '')
+
+  LEFT JOIN constituencies ON members.latest_constituency = constituencies.constituency_id
+
+  LEFT JOIN question_topics ON questions.question_id = question_topics.question_id
+  
+  GROUP BY constituencies.cons_name
+  "
+  )  %>%
+  replace_na_chr() %>% # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
+  filter(!is.na(con_shapefile)) # Drop constituencies without shapefiles
+ 
+geog_data <- geog_data %>%
+  mutate(econ_slant = econ_prop - health_welf_prop)
+
+# Add all constituencies as base map
+
+# To plot the base map, we want all constituencies, not just ones where questions have been asked.
+# We can get this from OSMaps
+# For reproducibility, the following code downloads and processes the data programmatically
+# To download manually, use https://osdatahub.os.uk/downloads/open/BoundaryLine
+
+if (!file.exists("data/whole_UK_shapefile/Data/GB/westminster_const_region.shp")) {
+
+options(timeout=600) # Takes some time to download so we need to increase the "timeout" setting
+
+dir.create("data/whole_UK_shapefile")
+download.file("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", "data/whole_UK_shapefile/OS_zip.zip") #
+options(timeout=60) # Reset timeout
+
+# unzip 
+unzip(
+  "data/whole_UK_shapefile/OS_zip.zip", 
+  files = c(
+    "Data/GB/westminster_const_region.dbf",
+    "Data/GB/westminster_const_region.prj",
+    "Data/GB/westminster_const_region.shp",
+    "Data/GB/westminster_const_region.shx"),
+  exdir = "data/whole_UK_shapefile", 
+  overwrite = TRUE)
+
+file.remove("data/whole_UK_shapefile/OS_zip.zip")
+
+}
+
+basemap_sf <- 
+  st_read(
+    dsn = "data/whole_UK_shapefile/Data/GB/westminster_const_region.shp") #  %>%
+ # filter() # FIXME keep only England and Wales
+
+# Make shape files for constituencies in the database
+
+# NOTE: approach to converting from GeoJSON from ChatGPT
+temp_geojson <- tempfile(fileext = ".geojson") # Create a temporary file
+writeLines(geog_data$con_shapefile, con = temp_geojson) # Write out to temporary file
+geog_sf <- st_read(dsn = temp_geojson) # Read the GeoJSON file into an sf object
+unlink(temp_geojson) # Delete temporary file
+
+geog_data <- cbind(geog_data, geog_sf)
+geog_data <- st_as_sf(geog_data) # Convert to SF
+
+```
+
+```{r plot-map, eval = TRUE}
+# Plot bias
+
+bias_map <- 
+  tm_shape(basemap_sf) +
+  tm_sf(col = "white") +
+  tm_shape(geog_data) +
+  tm_polygons(
+    col = "econ_slant",
+    style = "cont",
+    midpoint = 0,
+    title = "Economic bias",
+    palette = "RdBu",
+   #legend.hist = TRUE 
+  ) +
+  tm_legend(
+    #legend.outside=TRUE
+  )
+
+bias_map
+```
+
+
+
 ```{r seat-marginality, eval = TRUE}
 
 # Run linear model 
@@ -1393,6 +1420,7 @@ plot_marginality <- analysis_df %>%
       "\n SE: ", signif(se_marg, digits = 3)
     ),
     size = 3)+  
+  ylim(-1,1) +
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
@@ -1426,6 +1454,7 @@ plot_uc <- analysis_df %>%
       "\n SE: ", signif(se_uc, digits = 3)
     ),
     size = 3)+  
+  ylim(-1,1) +
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
@@ -1458,7 +1487,8 @@ plot_house_price <- analysis_df %>%
       "Slope: ", signif(slope_house_price, digits = 3),
       "\n SE: ", signif(se_house_price, digits = 3)
     ),
-    size = 3)+  
+    size = 3) +  
+  ylim(-1,1) +
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
@@ -1493,6 +1523,7 @@ plot_age_29 <- analysis_df %>%
       "\n SE: ", signif(se_age_29, digits = 3)
     ),
     size = 3)+  
+  ylim(-1,1) +
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
@@ -1519,6 +1550,7 @@ plot_age_30_64 <- analysis_df %>%
       "\n SE: ", signif(se_age_29, digits = 3)
     ),
     size = 3)+  
+  ylim(-1,1) +
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
@@ -1545,6 +1577,7 @@ plot_age_65 <- analysis_df %>%
       "\n SE: ", signif(se_age_29, digits = 3)
     ),
     size = 3)+  
+  ylim(-1,1) +
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
@@ -1572,18 +1605,13 @@ plot_density <- analysis_df %>%
       "\n SE: ", signif(se_density, digits = 3)
     ),
     size = 3)+  
+  ylim(-1,1) +
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     aspect.ratio = 1
   )
 
 plot_density
-```
-
-## Exploratory analysis 
-
-```{r}
-
 ```
 
 ```{r, eval = TRUE}
