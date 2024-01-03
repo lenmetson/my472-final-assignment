@@ -51,14 +51,7 @@ load_packages(c(
     # Geospatial plots
     "tmap", 
     "sf", 
-    "ggrepel", 
-    # Random forests
-    "parallel",
-    "ranger",
-    "tidymodels",
-    "vip", 
-    "rpart", 
-    "rpart.plot", 
+    "ggrepel",
     # Plotting 
     "gridExtra"
     ))
