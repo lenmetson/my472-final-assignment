@@ -1289,6 +1289,8 @@ analysis_df <- dbGetQuery(
     constituencies.uc_claimants_hoclib23 AS uc_claimants,
     constituencies.median_house_price_hoclib23 AS median_house_price,
 
+    constituencies.population_hoclib23 / constituencies.area_hoclib23 AS density,
+
     constituencies.age_0_29_hoclib23 AS age_29,
     constituencies.age_30_64_hoclib23 AS age_30_64,
     constituencies.age_65_plus_hoclib23 AS age_65,
@@ -1717,6 +1719,58 @@ grid.arrange(
 
 ```
 
+```{r pop-density, eval = TRUE}
+# Run linear models 
+lm_density_e <- summary(lm(econ_prop ~ density, data = analysis_df))
+lm_density_h <- summary(lm(health_welf_prop ~ density, data = analysis_df))
+
+# Save slope coefficients and SEs for plotting
+
+slope_density_e <- lm_density_e$coefficients[[2,1]]
+se_density_e <- lm_density_e$coefficients[[2,2]]
+
+slope_density_h <- lm_density_h$coefficients[[2,1]]
+se_density_h <- lm_density_h$coefficients[[2,2]]
+
+# Make plots
+
+econ_density <- analysis_df %>%
+  ggplot(aes(x=density, y = econ_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=-0.2, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_density_e, digits = 3),
+      "\n SE: ", signif(se_density_e, digits = 3)
+    ),
+    size = 3)+  
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+health_welf_density <- analysis_df %>%
+  ggplot(aes(x=density, y = health_welf_prop)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=-0.2, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_density_h, digits = 3),
+      "\n SE: ", signif(se_density_h, digits = 3)
+      ),
+    size = 3)+
+  ylim(0,1) +
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+grid.arrange(econ_density, health_welf_density, nrow=1)
+```
 
 ## Exploratory analysis 
 
