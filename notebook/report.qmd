@@ -1163,9 +1163,8 @@ db_table_check("question_topics")
 
 # Analysis 
 
-CANDO random forests (but won't have words)
-
-
+_
+$ econ\_slant = \frac{N (\text{economic questions})}{\text{N questions}} - \frac{N(\text{health & welfare questions})}{\text{N questions}}  $
 
 ### Geography
 
@@ -1207,7 +1206,7 @@ geog_data <- dbGetQuery(db,
   replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
  
 geog_data <- geog_data %>%
-  mutate(health_welf_bias = health_welf_prop - econ_prop)
+  mutate(econ_slant = econ_prop - health_welf_prop)
 
 # Add all constituencies as base map
 
@@ -1253,7 +1252,7 @@ geog_data <- st_as_sf(geog_data) # Convert to SF
 # Plot bias
 bias_map <- tm_shape(geog_data) +
   tm_sf(
-    col = "health_welf_bias",
+    col = "econ_slant",
     title = "Bias",
    legend.hist = TRUE 
   ) # +
@@ -1367,12 +1366,12 @@ analysis_df <- analysis_df %>%
   select(-c(marginality_1, marginality_2, marginality_3, marginality_4))
 
 analysis_df <- analysis_df %>%
-  mutate(health_welf_bias = health_welf_prop - econ_prop)
+  mutate(econ_slant = econ_prop - health_welf_prop)
 ```
 ```{r seat-marginality, eval = TRUE}
 
 # Run linear model 
-lm_marg <- summary(lm(health_welf_bias ~ mean_marginality, data = analysis_df))
+lm_marg <- summary(lm(econ_slant ~ mean_marginality, data = analysis_df))
 
 slope_marg <- lm_marg$coefficients[[2,1]]
 se_marg <- lm_marg$coefficients[[2,2]]
@@ -1380,7 +1379,7 @@ se_marg <- lm_marg$coefficients[[2,2]]
 # Make plot
 
 plot_marginality <- analysis_df %>%
-  ggplot(aes(x=mean_marginality, y = health_welf_bias)) + 
+  ggplot(aes(x=mean_marginality, y = econ_slant)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
@@ -1402,7 +1401,7 @@ plot_marginality
 ```{r con-uc-claimants, eval = TRUE}
 
 # Run linear model
-lm_uc <- summary(lm(health_welf_bias ~ uc_claimants, data = analysis_df))
+lm_uc <- summary(lm(econ_slant ~ uc_claimants, data = analysis_df))
 
 # Save slope coefficients and SEs for plotting
 
@@ -1413,7 +1412,7 @@ se_uc <- lm_uc$coefficients[[2,2]]
 # Make plots
 
 plot_uc <- analysis_df %>%
-  ggplot(aes(x=uc_claimants, y = health_welf_bias)) + 
+  ggplot(aes(x=uc_claimants, y = econ_slant)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
@@ -1435,7 +1434,7 @@ plot_uc
 ```{r con-house-price, eval = TRUE}
 
 # Run linear models 
-lm_house_price <- summary(lm(health_welf_bias ~ median_house_price, data = analysis_df))
+lm_house_price <- summary(lm(econ_slant ~ median_house_price, data = analysis_df))
 
 
 # Save slope coefficients and SEs for plotting
@@ -1446,7 +1445,7 @@ se_house_price <- lm_house_price$coefficients[[2,2]]
 # Make plot
 
 plot_house_price <- analysis_df %>%
-  ggplot(aes(x=median_house_price, y = health_welf_bias)) + 
+  ggplot(aes(x=median_house_price, y = econ_slant)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
@@ -1471,7 +1470,7 @@ plot_house_price
 ## Under 29 
 
 # Run linear model 
-lm_age_29 <- summary(lm(health_welf_bias ~ age_29, data = analysis_df))
+lm_age_29 <- summary(lm(econ_slant ~ age_29, data = analysis_df))
 
 # Save slope coefficients and SEs for plotting
 
@@ -1481,7 +1480,7 @@ se_age_29 <- lm_age_29$coefficients[[2,2]]
 # Make plots 
 
 plot_age_29 <- analysis_df %>%
-  ggplot(aes(x = age_29, y = health_welf_bias)) + 
+  ggplot(aes(x = age_29, y = econ_slant)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
@@ -1499,7 +1498,7 @@ plot_age_29 <- analysis_df %>%
 ## 30-65 
 
 # Run linear model 
-lm_age_30_64 <- summary(lm(health_welf_bias ~ age_30_64, data = analysis_df))
+lm_age_30_64 <- summary(lm(econ_slant ~ age_30_64, data = analysis_df))
 
 # Save slope coefficients and SEs for plotting
 
@@ -1507,7 +1506,7 @@ slope_age_30_64 <- lm_age_30_64$coefficients[[2,1]]
 se_age_30_64 <- lm_age_30_64$coefficients[[2,2]]
 
 plot_age_30_64 <- analysis_df %>%
-  ggplot(aes(x = age_30_64, y = health_welf_bias)) + 
+  ggplot(aes(x = age_30_64, y = econ_slant)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
@@ -1524,7 +1523,7 @@ plot_age_30_64 <- analysis_df %>%
 
 ## 65+
 # Run linear model 
-lm_age_65 <- summary(lm(health_welf_bias ~ age_65 , data = analysis_df))
+lm_age_65 <- summary(lm(econ_slant ~ age_65 , data = analysis_df))
 
 # Save slope coefficients and SEs for plotting
 
@@ -1532,7 +1531,7 @@ slope_age_65  <- lm_age_65$coefficients[[2,1]]
 se_age_65 <- lm_age_65$coefficients[[2,2]]
 
 plot_age_65 <- analysis_df %>%
-  ggplot(aes(x = age_65, y = health_welf_bias)) + 
+  ggplot(aes(x = age_65, y = econ_slant)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
@@ -1552,12 +1551,12 @@ grid.arrange(plot_age_29, plot_age_30_64, plot_age_65, nrow=1)
 
 ```{r pop-density, eval = TRUE}
 
-lm_density <- summary(lm(health_welf_bias ~ density, data = analysis_df))
+lm_density <- summary(lm(econ_slant ~ density, data = analysis_df))
 slope_density <- lm_density$coefficients[[2,1]]
 se_density <- lm_density$coefficients[[2,2]]
 
 plot_density <- analysis_df %>%
-  ggplot(aes(x=density, y = health_welf_bias)) + 
+  ggplot(aes(x=density, y = econ_slant)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(

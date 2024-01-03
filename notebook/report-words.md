@@ -80,17 +80,8 @@ DIAGRAM OF FINAL RELATIONAL DATABASE
 
 # Analysis 
 
-## Measure topics 
 
-Dictionaries 
+$ econ\_slant = \frac{N (\text{economic questions})}{\text{N questions}} - \frac{N(\text{health & welfare questions})}{\text{N questions}}  $
 
-Wrote out to a 5th table 
-
-
-## Descriptive analysis 
-
-Having measured question topics, I first plot how they vary over time and across the UK. 
-
-I focus on the 4 main UK-wide parties #CHECK
 
 # Code appendix
