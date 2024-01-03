@@ -4475,7 +4475,7 @@ econ\_slant = \frac{N (economic)}{N(questions)} - \frac{N(health\_welfare)}{N(qu
 <span id="cb1-1226"><a href="#cb1-1226" aria-hidden="true" tabindex="-1"></a><span class="co"># For reproducibility, the following code downloads and processes the data programmatically</span></span>
 <span id="cb1-1227"><a href="#cb1-1227" aria-hidden="true" tabindex="-1"></a><span class="co"># To download manually, use https://osdatahub.os.uk/downloads/open/BoundaryLine</span></span>
 <span id="cb1-1228"><a href="#cb1-1228" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1229"><a href="#cb1-1229" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">file.exists</span>(<span class="st">&quot;data/whole_UK_shapefile/Data/GB/westminster_const_region.shp&quot;</span>)) {</span>
+<span id="cb1-1229"><a href="#cb1-1229" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">file.exists</span>(<span class="st">&quot;data/whole_UK_shapefile/Data/GB/westminster_const_region.shp&quot;</span>)) { <span class="co"># </span><span class="al">BUG</span><span class="co"> reads from notebook folder, not data</span></span>
 <span id="cb1-1230"><a href="#cb1-1230" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-1231"><a href="#cb1-1231" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">timeout=</span><span class="dv">600</span>) <span class="co"># Takes some time to download so we need to increase the &quot;timeout&quot; setting</span></span>
 <span id="cb1-1232"><a href="#cb1-1232" aria-hidden="true" tabindex="-1"></a></span>
