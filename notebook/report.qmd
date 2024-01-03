@@ -1259,31 +1259,7 @@ bias_map <- tm_shape(geog_data) +
   ) # +
   # tm_layout(legend.outside = TRUE) # BUG legend not moving outside 
 
-
-# Plot Econ
-econ_map <- tm_shape(geog_data) +
-  tm_sf(
-    col = "econ_prop",
-    title = "% Questions: Economic",
-   # legend.hist = TRUE,
-    palette = "Blues" 
-  ) # +
-  # tm_layout(legend.outside = TRUE) # BUG legend not moving outside 
-
-# Plot Health 
-
-health_map <- 
-tm_shape(geog_data) +
-  tm_sf(
-    col = "health_welf_prop",
-    title = "% Questions: Health & Welfare",
-    #legend.hist = TRUE,
-    palette = "Reds" 
-  ) # +
-#  tm_layout(
-#   legend.outside = FALSE) # BUG legend not moving outside 
-
-tmap_arrange(econ_map, health_map)
+bias_map
 
 ```
 
@@ -1395,174 +1371,97 @@ analysis_df <- analysis_df %>%
 ```
 ```{r seat-marginality, eval = TRUE}
 
-# Run linear models 
-lm_marg_e <- summary(lm(econ_prop ~ mean_marginality, data = analysis_df))
+# Run linear model 
+lm_marg <- summary(lm(health_welf_bias ~ mean_marginality, data = analysis_df))
 
-lm_marg_h <- summary(lm(health_welf_prop ~ mean_marginality, data = analysis_df))
+slope_marg <- lm_marg$coefficients[[2,1]]
+se_marg <- lm_marg$coefficients[[2,2]]
 
-# Save slope coefficients and SEs for plotting
+# Make plot
 
-slope_marg_e <- lm_marg_e$coefficients[[2,1]]
-se_marg_e <- lm_marg_e$coefficients[[2,2]]
-
-slope_marg_h <- lm_marg_h$coefficients[[2,1]]
-se_marg_h <- lm_marg_h$coefficients[[2,2]]
-
-# Make plots
-
-econ_marginality <- analysis_df %>%
-  ggplot(aes(x=mean_marginality, y = econ_prop)) + 
+plot_marginality <- analysis_df %>%
+  ggplot(aes(x=mean_marginality, y = health_welf_bias)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
     aes(x=-0.2, y= 0.5), 
     label = paste0(
-      "Slope: ", signif(slope_marg_e, digits = 3),
-      "\n SE: ", signif(se_marg_e, digits = 3)
+      "Slope: ", signif(slope_marg, digits = 3),
+      "\n SE: ", signif(se_marg, digits = 3)
     ),
     size = 3)+  
-  ylim(0,1) +
   theme(
+    aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
+    panel.grid = element_blank())
 
-
-health_welf_marginality <- analysis_df %>%
-  ggplot(aes(x=mean_marginality, y = health_welf_prop)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=-0.2, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_marg_h, digits = 3),
-      "\n SE: ", signif(se_marg_h, digits = 3)
-      ),
-    size = 3)+
-  ylim(0,1) +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
-
-grid.arrange(econ_marginality, health_welf_marginality, nrow=1)
-
+plot_marginality
 ```
 
 
 ```{r con-uc-claimants, eval = TRUE}
 
-
-# Run linear models 
-lm_uc_e <- summary(lm(econ_prop ~ uc_claimants, data = analysis_df))
-
-lm_uc_h <- summary(lm(health_welf_prop ~ uc_claimants, data = analysis_df))
+# Run linear model
+lm_uc <- summary(lm(health_welf_bias ~ uc_claimants, data = analysis_df))
 
 # Save slope coefficients and SEs for plotting
 
-slope_uc_e <- lm_uc_e$coefficients[[2,1]]
-se_uc_e <- lm_uc_e$coefficients[[2,2]]
+slope_uc <- lm_uc$coefficients[[2,1]]
+se_uc <- lm_uc$coefficients[[2,2]]
 
-slope_uc_h <- lm_uc_h$coefficients[[2,1]]
-se_uc_h <- lm_uc_h$coefficients[[2,2]]
 
 # Make plots
 
-econ_uc <- analysis_df %>%
-  ggplot(aes(x=uc_claimants, y = econ_prop)) + 
+plot_uc <- analysis_df %>%
+  ggplot(aes(x=uc_claimants, y = health_welf_bias)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
     aes(x=-0.2, y= 0.5), 
     label = paste0(
-      "Slope: ", signif(slope_uc_e, digits = 3),
-      "\n SE: ", signif(se_uc_e, digits = 3)
+      "Slope: ", signif(slope_uc, digits = 3),
+      "\n SE: ", signif(se_uc, digits = 3)
     ),
     size = 3)+  
-  ylim(0,1) +
   theme(
+    aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
+    panel.grid = element_blank())
 
-
-health_uc <- analysis_df %>%
-  ggplot(aes(x=uc_claimants, y = health_welf_prop)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=-0.2, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_uc_h, digits = 3),
-      "\n SE: ", signif(se_uc_h, digits = 3)
-      ),
-    size = 3)+
-  ylim(0,1) +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
-
-grid.arrange(econ_uc, health_uc, nrow=1)
-
+plot_uc
 ```
 
 
 ```{r con-house-price, eval = TRUE}
 
 # Run linear models 
-lm_house_price_e <- summary(lm(econ_prop ~ median_house_price, data = analysis_df))
+lm_house_price <- summary(lm(health_welf_bias ~ median_house_price, data = analysis_df))
 
-lm_house_price_h <- summary(lm(health_welf_prop ~ median_house_price, data = analysis_df))
 
 # Save slope coefficients and SEs for plotting
 
-slope_house_price_e <- lm_house_price_e$coefficients[[2,1]]
-se_house_price_e <- lm_house_price_e$coefficients[[2,2]]
+slope_house_price <- lm_house_price$coefficients[[2,1]]
+se_house_price <- lm_house_price$coefficients[[2,2]]
 
-slope_house_price_h <- lm_house_price_h$coefficients[[2,1]]
-se_house_price_h <- lm_house_price_h$coefficients[[2,2]]
+# Make plot
 
-
-# Make plots 
-
-econ_house_price <- analysis_df %>%
-  ggplot(aes(x=median_house_price, y = econ_prop)) + 
+plot_house_price <- analysis_df %>%
+  ggplot(aes(x=median_house_price, y = health_welf_bias)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
     aes(x=9*10^5, y= 0.5), 
     label = paste0(
-      "Slope: ", signif(slope_house_price_e, digits = 3),
-      "\n SE: ", signif(se_house_price_e, digits = 3)
+      "Slope: ", signif(slope_house_price, digits = 3),
+      "\n SE: ", signif(se_house_price, digits = 3)
     ),
     size = 3)+  
-  ylim(0,1) +
   theme(
+    aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
+    panel.grid = element_blank())
 
-
-health_house_price <- analysis_df %>%
-  ggplot(aes(x=median_house_price, y = health_welf_prop)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=9*10^5, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_house_price_h, digits = 3),
-      "\n SE: ", signif(se_house_price_h, digits = 3)
-      ),
-    size = 3)+
-  ylim(0,1) +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
-
-grid.arrange(econ_house_price, health_house_price, nrow=1)
-
+plot_house_price
 ```
 
 
@@ -1571,250 +1470,109 @@ grid.arrange(econ_house_price, health_house_price, nrow=1)
 
 ## Under 29 
 
-# Run linear models 
-lm_age_29_e <- summary(lm(econ_prop ~ age_29, data = analysis_df))
-
-lm_age_29_h <- summary(lm(health_welf_prop ~ age_29, data = analysis_df))
+# Run linear model 
+lm_age_29 <- summary(lm(health_welf_bias ~ age_29, data = analysis_df))
 
 # Save slope coefficients and SEs for plotting
 
-slope_age_29_e <- lm_age_29_e$coefficients[[2,1]]
-se_age_29_e <- lm_age_29_e$coefficients[[2,2]]
-
-slope_age_29_h <- lm_age_29_h$coefficients[[2,1]]
-se_age_29_h <- lm_age_29_h$coefficients[[2,2]]
-
+slope_age_29 <- lm_age_29$coefficients[[2,1]]
+se_age_29 <- lm_age_29$coefficients[[2,2]]
 
 # Make plots 
 
-econ_age_29 <- analysis_df %>%
-  ggplot(aes(x = age_29, y = econ_prop)) + 
+plot_age_29 <- analysis_df %>%
+  ggplot(aes(x = age_29, y = health_welf_bias)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
     aes(x=0.5, y= 0.5),     label = paste0(
-      "Slope: ", signif(slope_age_29_e, digits = 3),
-      "\n SE: ", signif(se_age_29_e, digits = 3)
+      "Slope: ", signif(slope_age_29, digits = 3),
+      "\n SE: ", signif(se_age_29, digits = 3)
     ),
     size = 3)+  
-  ylim(0,1) +
   theme(
+    aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
+    panel.grid = element_blank())
 
-
-health_age_29 <- analysis_df %>%
-  ggplot(aes(x= age_29, y = health_welf_prop)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=0.5, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_age_29_h, digits = 3),
-      "\n SE: ", signif(se_age_29_h, digits = 3)
-      ),
-    size = 3)+
-  ylim(0,1) +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
 
 ## 30-65 
 
-# Run linear models 
-lm_age_30_64_e <- summary(lm(econ_prop ~ age_30_64, data = analysis_df))
-
-lm_age_30_64_h <- summary(lm(health_welf_prop ~ age_30_64, data = analysis_df))
+# Run linear model 
+lm_age_30_64 <- summary(lm(health_welf_bias ~ age_30_64, data = analysis_df))
 
 # Save slope coefficients and SEs for plotting
 
-slope_age_30_64_e <- lm_age_30_64_e$coefficients[[2,1]]
-se_age_30_64_e <- lm_age_30_64_e$coefficients[[2,2]]
+slope_age_30_64 <- lm_age_30_64$coefficients[[2,1]]
+se_age_30_64 <- lm_age_30_64$coefficients[[2,2]]
 
-slope_age_30_64_h <- lm_age_30_64_h$coefficients[[2,1]]
-se_age_30_64_h <- lm_age_30_64_h$coefficients[[2,2]]
-
-
-# Make plots 
-
-econ_age_30_64 <- analysis_df %>%
-  ggplot(aes(x = age_30_64, y = econ_prop)) + 
+plot_age_30_64 <- analysis_df %>%
+  ggplot(aes(x = age_30_64, y = health_welf_bias)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
     aes(x=0.5, y= 0.5),     label = paste0(
-      "Slope: ", signif(slope_age_30_64_e, digits = 3),
-      "\n SE: ", signif(se_age_30_64_e, digits = 3)
+      "Slope: ", signif(slope_age_29, digits = 3),
+      "\n SE: ", signif(se_age_29, digits = 3)
     ),
     size = 3)+  
-  ylim(0,1) +
   theme(
+    aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
-
-
-health_age_30_64 <- analysis_df %>%
-  ggplot(aes(x= age_30_64, y = health_welf_prop)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=0.5, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_age_30_64_h, digits = 3),
-      "\n SE: ", signif(se_age_30_64_h, digits = 3)
-      ),
-    size = 3)+
-  ylim(0,1) +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
+    panel.grid = element_blank())
 
 
 ## 65+
-
-# Run linear models 
-lm_age_65_e <- summary(lm(econ_prop ~ age_65, data = analysis_df))
-
-lm_age_65_h <- summary(lm(health_welf_prop ~ age_65, data = analysis_df))
+# Run linear model 
+lm_age_65 <- summary(lm(health_welf_bias ~ age_65 , data = analysis_df))
 
 # Save slope coefficients and SEs for plotting
 
-slope_age_65_e <- lm_age_65_e$coefficients[[2,1]]
-se_age_65_e <- lm_age_65_e$coefficients[[2,2]]
+slope_age_65  <- lm_age_65$coefficients[[2,1]]
+se_age_65 <- lm_age_65$coefficients[[2,2]]
 
-slope_age_65_h <- lm_age_65_h$coefficients[[2,1]]
-se_age_65_h <- lm_age_65_h$coefficients[[2,2]]
-
-
-# Make plots 
-
-econ_age_65 <- analysis_df %>%
-  ggplot(aes(x = age_65, y = econ_prop)) + 
+plot_age_65 <- analysis_df %>%
+  ggplot(aes(x = age_65, y = health_welf_bias)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
-    aes(x=0.3, y= 0.5),     label = paste0(
-      "Slope: ", signif(slope_age_65_e, digits = 3),
-      "\n SE: ", signif(se_age_65_e, digits = 3)
+    aes(x=0.3, y= 0.5),     
+    label = paste0(
+      "Slope: ", signif(slope_age_29, digits = 3),
+      "\n SE: ", signif(se_age_29, digits = 3)
     ),
     size = 3)+  
-  ylim(0,1) +
   theme(
+    aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
+    panel.grid = element_blank())
 
-
-health_age_65 <- analysis_df %>%
-  ggplot(aes(x= age_65, y = health_welf_prop)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=0.3, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_age_65_h, digits = 3),
-      "\n SE: ", signif(se_age_65_h, digits = 3)
-      ),
-    size = 3)+
-  ylim(0,1) +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
-
-
-grid.arrange(
-  econ_age_29, health_age_29, 
-  econ_age_30_64, health_age_30_64,  
-  econ_age_65, health_age_65,   
-  nrow=3)
-
+grid.arrange(plot_age_29, plot_age_30_64, plot_age_65, nrow=1)
 ```
 
 ```{r pop-density, eval = TRUE}
 
+lm_density <- summary(lm(health_welf_bias ~ density, data = analysis_df))
+slope_density <- lm_density$coefficients[[2,1]]
+se_density <- lm_density$coefficients[[2,2]]
 
-lm_density_b <- summary(lm(health_welf_bias ~ density, data = analysis_df))
-
-
-bias_density <- analysis_df %>%
+plot_density <- analysis_df %>%
   ggplot(aes(x=density, y = health_welf_bias)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
-  # geom_text(
-  #   aes(x=-0.2, y= 0.5), 
-  #   label = paste0(
-  #     "Slope: ", signif(slope_density_e, digits = 3),
-  #     "\n SE: ", signif(se_density_e, digits = 3)
-  #   ),
-  #   size = 3)+  
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
-
-
-
-
-
-
-
-
-
-# Run linear models 
-lm_density_e <- summary(lm(econ_prop ~ density, data = analysis_df))
-lm_density_h <- summary(lm(health_welf_prop ~ density, data = analysis_df))
-
-# Save slope coefficients and SEs for plotting
-
-slope_density_e <- lm_density_e$coefficients[[2,1]]
-se_density_e <- lm_density_e$coefficients[[2,2]]
-
-slope_density_h <- lm_density_h$coefficients[[2,1]]
-se_density_h <- lm_density_h$coefficients[[2,2]]
-
-# Make plots
-
-econ_density <- analysis_df %>%
-  ggplot(aes(x=density, y = econ_prop)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
   geom_text(
-    aes(x=-0.2, y= 0.5), 
+    aes(x=15000, y= 0.5), 
     label = paste0(
-      "Slope: ", signif(slope_density_e, digits = 3),
-      "\n SE: ", signif(se_density_e, digits = 3)
+      "Slope: ", signif(slope_density, digits = 3),
+      "\n SE: ", signif(se_density, digits = 3)
     ),
     size = 3)+  
-  ylim(0,1) +
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
     aspect.ratio = 1
   )
 
-
-health_welf_density <- analysis_df %>%
-  ggplot(aes(x=density, y = health_welf_prop)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=-0.2, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_density_h, digits = 3),
-      "\n SE: ", signif(se_density_h, digits = 3)
-      ),
-    size = 3)+
-  ylim(0,1) +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
-
-grid.arrange(econ_density, health_welf_density, nrow=1)
+plot_density
 ```
 
 ## Exploratory analysis 
