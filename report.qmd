@@ -9,13 +9,17 @@ format:
 
 Link to public GitHub repository: [https://github.com/lenmetson/my472-final-assignment](https://github.com/lenmetson/my472-final-assignment).
 
+Words: 722
+
 ```{r, include = FALSE} 
 knitr::opts_chunk$set(
     echo = FALSE, 
     eval = FALSE,
     message = FALSE, 
     warning = FALSE, 
-    error = FALSE)
+    error = FALSE, 
+    fig.width=7, fig.height=6,
+    fig.align='center') 
 
 ```
 
@@ -91,7 +95,7 @@ db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
 # Introduction 
 
-Parliamentary questions are a critical part of how MPs represent their constituency. Therefore, I focus on asking what factors about the constituency an MP represents drives their focus on economic or health and welfare topics in 2023. I operationalise “focus” as the proportion of questions a member asks about a given topic. 
+Parliamentary questions are a critical part of how MPs represent their constituency. Therefore, I focus on asking what factors about the constituency an MP represents drives their focus on economic or health and welfare topics in 2023. 
 
 # Data
 
@@ -99,7 +103,11 @@ I drew on data from two sources: the UK Parliament API (“API”), and the [UK 
 
 ## API 
 
-First, I pulled the text of questions from the API oral and written question endpoints. For oral questions, the API only returns questions asked in the House of Commons. However, the written question endpoint returns questions from both the House of Lords and the House of Commons. Therefore, I added a parameter to the request URL to only return written questions asked by members of the House of Commons. After flattening and cleaning the responses and adding a variable `oral_written` to distinguish the question type, I merged both types of question into one dataframe and wrote it to my database as `"questions"`. 
+First, I pulled the text of questions from the API oral and written question endpoints. For oral questions, the API only returns questions asked in the House of Commons (HoC). However, the written question endpoint returns questions from both the House of Lords (HoL) and the HoC. Therefore, I added a parameter to the request URL to only return written questions asked by members of the HoC. I merged both types of question into one table: `questions`. 
+
+For each question, I wanted to be able to pull in additional data about the MP who had asked it and the minister they asked it to. Some MP characteristics, such as their party affiliation or seat, change over time. The API members endpoint allows queries to specify  date. It then returns data as valid from that date. Thus, I queried the API for each unique MP-date pairs from my `questions` table.
+
+However, I did not want to write out a table with data on each MP for every day they had asked a question. Therefore, I grouped the clean response table by each unique combination of MP and their characteristics and summarised the earliest and latest date this combination was valid for. 
 
 ```{r pull-oral-questions}
 
@@ -345,10 +353,6 @@ dbWriteTable(db, "questions", question_df, overwrite = TRUE)
 rm(oral_question_df, written_question_df, question_df)
 ```
 
-For each question, I wanted to be able to pull in additional data about the MP who had asked it and the minister they asked it to. Some MP characteristics, such as their party affiliation or seat, change over time. The API members endpoint allows queries to specify a date. It then returns data as valid from that date. To pull make the fewest possible requests, I created unique MP-date pairs from my `questions` table. 
-
-Many MP characteristics change over time - such as the party they represent, the ministerial posts they hold, etc. Therefore, we have to construct a members table that accommodates these changes. The API allows queries that specify a date. This will give us a unique response that is valid on the day of each question. I will write out this "summarised" version of the data to my database. Then in analysis, I can query the entry that is valid for when each question is asked. 
-
 ```{r pull-members-endpoint}
 
 # This code can also be run by sourcing scripts/03_pull-members-endpoint.R 
@@ -422,8 +426,6 @@ members <- pull_members(
 saveRDS(members, "data/members_raw.Rds")
 ```
 
-However, because characteristics do not change very frequently, I did not want to write out a table with data on each MP for every day they had asked a question. Therefore, I grouped the clean response table by each unique combination of MP and their characteristics and summarised the earliest and latest date this combination was valid for. This reduced the number of rows I would write to my `members` table from 4225 to 482.
-
 ```{r clean-members-pull}
 
 members <- readRDS("data/members_raw.Rds") 
@@ -492,8 +494,6 @@ members_df_grouped <- members_df %>%
 dbWriteTable(db, "members", members_df_grouped, overwrite = TRUE)
 
 ```
-
-I then used the constituency endpoints to pull the results of the last 4 elections held in each constituency and a shapefile for each constituency. 
 
 ```{r pull-constituency-endpoints}
 
@@ -694,7 +694,9 @@ saveRDS(constituencies, "data/constituencies_api_raw.Rds")
 
 ## Dashboard
 
-The data on the demographics of constituencies from the UK Parliament API is very limited. Therefore, I used the Commons Library constituency dashboard to add demographic variables. This data source does not have an API endpoint and requires each constituency to be looked up using a search tool. Therefore, I used Selenium to interactively scrape the data. One limitation of this data source was that data on the median house price in each constituency was not available for constituencies in Scotland and Northern Ireland. 
+The data on the demographics of constituencies from the UK Parliament API is very limited. Therefore, I used the Commons Library constituency dashboard to add demographic variables. This data source does not have an API endpoint and requires each constituency to be looked up using a search tool. Therefore, I used Selenium to interactively scrape the data. 
+
+To create the `constituencies` table, I merged the scraped data with election results and shapefiles pulled from the API. 
 
 ```{r selenium-scrape-hoc-dashboard}
 
@@ -955,8 +957,6 @@ if (file.exists("data/hoc_library_scrape_raw.Rds")) {
 
 ```
 
-After merging the scraped data with the constituency data pulled from the API, I wrote out the clean dataframe to `constituencies`. 
-
 ```{r clean-constituency-data}
 
 # Clean dashboard data
@@ -1019,7 +1019,6 @@ dbWriteTable(db, "constituencies", cons, overwrite = TRUE)
 
 ```
 
-Finally, I obtained party names and colours from the API and wrote out the results as the table `"parties"` for use in plotting. 
 
 ```{r pull-party-info}
 
@@ -1062,7 +1061,7 @@ dbWriteTable(db, "parties", parties_df, overwrite = TRUE)
 
 ## Measurement
 
-To measure whether a question is about (1) economic issues or (2) health and welfare, I use a simple dictionary approach. Whilst limited compared to machine learning classification approaches, dictionary string matching was more feasible for this project as it does not require expert labelling of a training set.
+To measure whether a question is about (1) economic issues or (2) health and welfare, I use a simple dictionary approach. Whilst limited compared to machine learning classification approaches, dictionary string matching was more feasible for this project as it does not require expert labelling of a training set. I used pre-defined policy topic dictionaries from [Lexicoder](https://www.snsoroka.com/data-lexicoder) (Albugh, et al., 2013). I wrote out the results of my measurement to a table called `question_topics`. 
 
 ```{r measure-topics}
 
@@ -1199,9 +1198,13 @@ db_table_check("question_topics")
 
 # Analysis 
 
+To answer which factors about an MP’s constituency discriminate whether they ask questions on economic or health & welfare topics, I construct a measure of slant at the MP level, defined as: 
+
 $$ 
 slant = \frac{N (economic)}{N(questions)} - \frac{N(health\_welfare)}{N(questions)}  
 $$
+
+This measure ranges from -1 to 1. A value of -1 indicates a perfect health and welfare slant – I.e. the MP only asks health & welfare questions -  and a value of 1 indicates a perfect economic slant. 
 
 ```{r read-in-analysis-data, eval = TRUE}
 analysis_df <- dbGetQuery(
@@ -1215,7 +1218,7 @@ analysis_df <- dbGetQuery(
     SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
     SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
     
-    constituencies.uc_claimants_hoclib23 / constituencies.population_hoclib23 AS uc_claimants,
+    constituencies.uc_claimants_hoclib23 AS uc_claimants,
     constituencies.median_house_price_hoclib23 AS median_house_price,
 
     constituencies.population_hoclib23 / constituencies.area_hoclib23 AS density,
@@ -1307,23 +1310,25 @@ analysis_df <- analysis_df %>%
   mutate(econ_slant = econ_prop - health_welf_prop)
 ```
 
-```{r hist, eval = TRUE}
+```{r hist, eval = TRUE, fig.cap="Distribution of slant variable for oral and written questions asked by MPs in 2023. Black line indicates where there is no slant."}
 
 hist <- analysis_df %>%
   ggplot() +
   geom_vline(xintercept = 0)+
   geom_histogram(aes(x=econ_slant), alpha = 0.7) +
   xlim(-1,1)+
-  labs(title = "Distribution of sconomic slant") +
+  labs(
+    title = "Distribution of oral and written question slant", 
+    x = "Slant", y = "Count") +
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
     panel.grid = element_blank())
 
 hist
-
 ```
 
+Figure 1 shows that most MPs have no  slant and that there is a slight skew towards health & welfare questions. 
 
 ```{r prepare-map, eval = TRUE, include = FALSE}
 
@@ -1410,10 +1415,12 @@ geog_data <- st_as_sf(geog_data) # Convert to SF
 
 ```
 
-```{r plot-map, eval = TRUE, fig.width = 40, fig.height =60, fig.align = 'center'}
-# Plot bias
+Figure 2 shows the geographic distribution of economic slant across the UK. Whilst there is no clear regional pattern, it seems that small clusters of urban areas, such as the North of Wales and North West of England appear to be slightly more focused on health & welfare.
 
-bias_map <- 
+```{r plot-map, eval = TRUE, fig.width = 40, fig.height =60, fig.cap= "Map showing the geographic distribution of question slant. A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues. Constituencies shown as white are where the MP asked no oral or written questions in 2023."}
+
+
+map <- 
   tm_shape(basemap_sf) +
   tm_sf(col = "white") +
   tm_shape(geog_data) +
@@ -1421,20 +1428,26 @@ bias_map <-
     col = "econ_slant",
     style = "cont",
     midpoint = 0,
-    title = "Economic slant",
+    title = "Question topic slant",
     palette = "RdBu",
    #legend.hist = TRUE 
   ) +
   tm_legend(
-    legend.outside=TRUE
+    legend.position = c("right", "center"),
+    legend.title.size = 5,
+    legend.text.size = 4
+  ) +
+  tm_layout(
+    title = "Distribution of question topic slant across UK Constituencies.\n\n", 
+    title.size = 9
   )
 
-bias_map
+map
 ```
 
+To explore this further, Figure 3 shows, that population density is correlated with having a stronger focus on health & welfare compared to economic issues. This suggests that one factor which drives whether MPs focus on different topics in their questions is how urban the constituency they represent is. 
 
-
-```{r pop-density, eval = TRUE}
+```{r pop-density, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about helath and welfare issues, a score of 1 indicates all questions were about economic issues."}
 
 lm_density <- summary(lm(econ_slant ~ density, data = analysis_df))
 slope_density <- lm_density$coefficients[[2,1]]
@@ -1451,6 +1464,10 @@ plot_density <- analysis_df %>%
       "\n SE: ", signif(se_density, digits = 3)
     ),
     size = 3)+  
+  labs(
+    title = "Correlation between population density of an MP's consitutency and their question slant in 2023", 
+    x = "Population density in 2023 (people per km^2)", 
+    y = "Slant") +
   ylim(-1,1) +
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
@@ -1460,9 +1477,9 @@ plot_density <- analysis_df %>%
 plot_density
 ```
 
+Figure 4 shows the correlation between slant and the number of households claiming universal credit (UC) in the constituency. Surprisingly, there is no overall relationship between the density of UC claimants and focus on health and welfare issues.
 
-
-```{r con-uc-claimants, eval = TRUE}
+```{r con-uc-claimants, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about helath and welfare issues, a score of 1 indicates all questions were about economic issues."}
 
 # Run linear model
 lm_uc <- summary(lm(econ_slant ~ uc_claimants, data = analysis_df))
@@ -1480,12 +1497,16 @@ plot_uc <- analysis_df %>%
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
-    aes(x=0.05, y= 0.8), 
+    aes(x=5000, y= 0.8), 
     label = paste0(
       "Slope: ", signif(slope_uc, digits = 3),
       "\n SE: ", signif(se_uc, digits = 3)
     ),
-    size = 3)+  
+    size = 3) +  
+  labs(
+    title = "Correlation between the number of households claiming Universal Credit in an MP's consitutency and their question slant in 2023", 
+    x = "Proportion of population claiming Universal Credit", 
+    y = "Slant") +  
   ylim(-1,1) +
   theme(
     aspect.ratio = 1,
@@ -1494,7 +1515,9 @@ plot_uc <- analysis_df %>%
 
 ```
 
-```{r seat-marginality, eval = TRUE}
+Finally, Figure 6 shows that the slant of an MP’s question is uncorrelated with the marginality of their seat. 
+
+```{r seat-marginality, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about helath and welfare issues, a score of 1 indicates all questions were about economic issues. Seat marginality as the average majority that an MP’s party won in the previous four elections in the constituency the MP currently represents. Higher values for marginality indicate safer seats."}
 
 # Run linear model 
 lm_marg <- summary(lm(econ_slant ~ mean_marginality, data = analysis_df))
@@ -1514,7 +1537,11 @@ plot_marginality <- analysis_df %>%
       "Slope: ", signif(slope_marg, digits = 3),
       "\n SE: ", signif(se_marg, digits = 3)
     ),
-    size = 3)+  
+    size = 3) +  
+  labs(
+    title = "Correlation between an MP's seat marginality and their question slant in 2023", 
+    x = "Seat marginality", 
+    y = "Slant") +  
   ylim(-1,1) +
   theme(
     aspect.ratio = 1,
@@ -1524,10 +1551,16 @@ plot_marginality <- analysis_df %>%
 plot_marginality
 ```
 
+Overall, I find that characteristic of an MPs constituency do not particularly discriminate whether they focus on economic or health & welfare issues.
+
 ```{r, eval = TRUE}
 # Disconnect from local database
 DBI::dbDisconnect(db)
 ```
+
+# References 
+
+Albugh, Quinn, Julie Sevenans and Stuart Soroka. 2013. Lexicoder Topic Dictionaries, June 2013 versions, McGill University, Montreal, Canada.
 
 # Code appendix
 
