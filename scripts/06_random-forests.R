@@ -321,29 +321,56 @@ apply_random_forest(
 
 # Variable importance plot
 
+#PICKUP
+# TODO merge in branch if want to keep RFs
 
-# econ_last_fit <- readRDS("data/random-forest-outputs/econlast_fit.Rds")
-
-
-# econ_vi_plot <- econ_last_fit %>%
-#   pluck(".workflow", 1) %>%
-#   extract_fit_parsnip() %>%
-#   vip(num_features = 10) + #  CANDO can vary this
-#   labs(title = "Variable importance for asking Economic Questions")
-
-# econ_vi_plot
+# Variable importance plot
 
 
+econ_last_fit <- readRDS("data/random-forest-outputs/econlast_fit.Rds")
 
-# health_welf_last_fit <- readRDS("data/random-forest-outputs/health_welflast_fit.Rds")
+econ_vi_plot <- econ_last_fit %>%
+  pluck(".workflow", 1) %>%
+  extract_fit_parsnip() %>%
+  vip(num_features = 10) + #  CANDO can vary this
+  labs(title = "Variable importance for asking Economic Questions")
 
-# # Variable importance plot
 
-# health_welf_plot <- health_welf_last_fit %>%
-#   pluck(".workflow", 1) %>%
-#   extract_fit_parsnip() %>%
-#   vip(num_features = 10) + #  CANDO can vary this
-#   labs(title = "Variable importance for asking Economic Questions")
 
-# health_welf_vi_plot
+health_welf_last_fit <- readRDS("data/random-forest-outputs/health_welflast_fit.Rds")
+
+health_welf_plot <- health_welf_last_fit %>%
+  pluck(".workflow", 1) %>%
+  extract_fit_parsnip() %>%
+  vip(num_features = 10) + #  CANDO can vary this
+  labs(title = "Variable importance for asking Health & Welfare Questions")
+
+
+grid.arrange(econ_vi_plot, health_welf_plot)
+
+# Model performance
+
+econ_tune <- readRDS("data/random-forest-outputs/econ_tune.Rds")
+
+econ_tune_plot <- econ_tune %>% autoplot() + 
+    theme(
+        aspect.ratio = 1, 
+        panel.background = element_rect(fill = "white", color = "black"),
+        panel.grid = element_blank())
+
+econ_tune %>% show_best("roc_auc")
+
+
+health_welf_tune <- readRDS("data/random-forest-outputs/health_welf_tune.Rds")
+
+health_welf_tune_plot <- health_welf_tune %>% autoplot() + 
+    theme(
+        aspect.ratio = 1, 
+        panel.background = element_rect(fill = "white", color = "black"),
+        panel.grid = element_blank())
+
+health_welf_tune %>% show_best("roc_auc")
+
+
+
 
