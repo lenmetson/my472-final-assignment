@@ -7,7 +7,7 @@ GET_qs_written <- function(endpoint_url, n_skip = 0) {
     "?skip=",
     n_skip,
     "&tabledWhenFrom=2023-01-01&tabledWhenTo=2023-12-31", # Limit to 2023
-    "&house=Commons", # Limit to HoC # TODO add this to report
+    "&house=Commons", # Limit to HoC
     "&take=100")   
   
   response <-
@@ -23,7 +23,7 @@ pull_all_written_qs <- function(endpoint_url){
     paste0(
       endpoint_url, 
       "?tabledWhenFrom=2023-01-01&tabledWhenTo=2023-12-31", # Limit to 2023
-      "&house=Commons", # Limit to HoC # TODO add this to report
+      "&house=Commons", # Limit to HoC 
       "&take=1")) %>% 
     httr::content("parsed")
 

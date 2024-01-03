@@ -20,7 +20,7 @@ knitr::opts_chunk$set(
 ```
 
 ```{r basic-setup, eval = TRUE}
-
+# PICKUP
 # Can also be run by sourcing scripts/00_setup.R
 
 # Define function to install or load packages
@@ -43,6 +43,7 @@ load_packages(c(
     "RSelenium",
     # Text analysis 
     "tm", 
+    "XML",
     # Geospatial plots
     "tmap", 
     "sf", 
@@ -1088,36 +1089,74 @@ question_text$question_text <- question_text$question_text %>%
 # Define dictionaries 
 # CANDO: better define dictionaries
 
+# NOTE Citation Albugh, Quinn, Julie Sevenans and Stuart Soroka. 2013. Lexicoder Topic Dictionaries, June 2013 versions, McGill University, Montreal, Canada.
 
-econ_dict <- c(
-  "econom* ",
-  "inflation",
-  "grow* ", 
-  "interest rate* ", 
-  "budget", 
-  "gdp", 
-  "autumn statement", 
-  "chancellor", 
-  "treasury"
+# Download Lexicon Policy Topic Dictionaries 
+if (!file.exists("data/lexicoder_dictionaries/LTDjun2013/policy_agendas_english.lcd")) {
+
+# PICKUP
+
+  dir.create("data/lexicoder_dictionaries")
+  download.file(
+    "https://www.snsoroka.com/s/LTDjun2013.zip", 
+    "data/lexicoder_dictionaries/policy_topics.zip")
+
+  unzip(
+    "data/lexicoder_dictionaries/policy_topics.zip", 
+    exdir = "data/lexicoder_dictionaries", overwrite = TRUE)
+}
+  
+  # NOTE ChatGPT used to write code that parses XML 
+
+parsed_string <- readLines("data/lexicoder_dictionaries/LTDjun2013/policy_agendas_english.lcd") %>%
+  paste(collapse = "\n") %>%
+  xmlTreeParse(useInternalNodes = TRUE) 
+
+
+extract_pnodes <- function(cnode) {
+  sapply(xpathApply(cnode, "./pnode"), function(pnode) {
+    xmlAttrs(pnode)[["name"]]
+  })
+}
+
+# Extract cnodes and their corresponding pnodes
+dictionaries_output <- xpathApply(parsed_string, "//cnode", function(cnode) {
+  cnode_name <- xmlAttrs(cnode)[["name"]]
+  pnodes <- extract_pnodes(cnode)
+  return(list(cnode_name = cnode_name, pnodes = pnodes))
+})
+
+# Convert to a single list 
+dictionaries <- list()
+
+for (item in dictionaries_output) {
+  cnode_name <- item$cnode_name
+  pnodes <- item$pnodes
+  dictionaries[[cnode_name]] <- pnodes
+}
+
+rm(cnode_name, dictionaries_output, item, parsed_string, pnodes, raw_string)
+
+
+econ_dict <- c( # Select relevant dictionaries 
+  dictionaries$macroeconomics,
+  dictionaries$finance,
+  dictionaries$foreign_trade
+  )
+
+# Convert to regex string and convert to lower for matching
+econ_dict <- econ_dict %>%
+  paste(collapse="|") %>%
+  tolower()
+
+health_welf_dict <- c( # Select relevant dictionaries 
+  dictionaries$healthcare, 
+  dictionaries$social_welfare
 )
 
-econ_dict <- paste(econ_dict, collapse="|")
-
-health_welf_dict <- c(
-  "health* ", 
-  "welfare", 
-  " nhs ",
-  "universal credit",
-  "benefit payments* ", 
-  "benefit recipients* ",
-  "covid ", 
-  "pandemic", 
-  "doctor", 
-  "nurse" ,
-  "dentist"
-)
-
-health_welf_dict <- paste(health_welf_dict, collapse="|")
+health_welf_dict <- health_welf_dict %>%
+  paste(collapse="|") %>%
+  tolower()
 
 question_text <- question_text %>%
   mutate(
@@ -1334,7 +1373,7 @@ geog_data <- geog_data %>%
 # For reproducibility, the following code downloads and processes the data programmatically
 # To download manually, use https://osdatahub.os.uk/downloads/open/BoundaryLine
 
-if (!file.exists("data/whole_UK_shapefile/Data/GB/westminster_const_region.shp")) { # BUG reads from notebook folder, not data
+if (!file.exists("data/whole_UK_shapefile/Data/GB/westminster_const_region.shp")) { 
 
 options(timeout=600) # Takes some time to download so we need to increase the "timeout" setting
 
