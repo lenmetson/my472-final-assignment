@@ -1200,7 +1200,7 @@ db_table_check("question_topics")
 # Analysis 
 
 $$ 
-econ\_slant = \frac{N (economic)}{N(questions)} - \frac{N(health\_welfare)}{N(questions)}  
+slant = \frac{N (economic)}{N(questions)} - \frac{N(health\_welfare)}{N(questions)}  
 $$
 
 ```{r read-in-analysis-data, eval = TRUE}
@@ -1215,7 +1215,7 @@ analysis_df <- dbGetQuery(
     SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
     SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
     
-    constituencies.uc_claimants_hoclib23 AS uc_claimants,
+    constituencies.uc_claimants_hoclib23 / constituencies.population_hoclib23 AS uc_claimants,
     constituencies.median_house_price_hoclib23 AS median_house_price,
 
     constituencies.population_hoclib23 / constituencies.area_hoclib23 AS density,
@@ -1434,35 +1434,32 @@ bias_map
 
 
 
-```{r seat-marginality, eval = TRUE}
+```{r pop-density, eval = TRUE}
 
-# Run linear model 
-lm_marg <- summary(lm(econ_slant ~ mean_marginality, data = analysis_df))
+lm_density <- summary(lm(econ_slant ~ density, data = analysis_df))
+slope_density <- lm_density$coefficients[[2,1]]
+se_density <- lm_density$coefficients[[2,2]]
 
-slope_marg <- lm_marg$coefficients[[2,1]]
-se_marg <- lm_marg$coefficients[[2,2]]
-
-# Make plot
-
-plot_marginality <- analysis_df %>%
-  ggplot(aes(x=mean_marginality, y = econ_slant)) + 
+plot_density <- analysis_df %>%
+  ggplot(aes(x=density, y = econ_slant)) + 
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
-    aes(x=-0.2, y= 0.5), 
+    aes(x=15000, y= 0.5), 
     label = paste0(
-      "Slope: ", signif(slope_marg, digits = 3),
-      "\n SE: ", signif(se_marg, digits = 3)
+      "Slope: ", signif(slope_density, digits = 3),
+      "\n SE: ", signif(se_density, digits = 3)
     ),
     size = 3)+  
   ylim(-1,1) +
   theme(
-    aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
-    panel.grid = element_blank())
+    aspect.ratio = 1
+  )
 
-plot_marginality
+plot_density
 ```
+
 
 
 ```{r con-uc-claimants, eval = TRUE}
@@ -1483,7 +1480,7 @@ plot_uc <- analysis_df %>%
   geom_point(size = 0.5, alpha = 0.5) + 
   geom_smooth(method = "lm") +
   geom_text(
-    aes(x=-0.2, y= 0.5), 
+    aes(x=0.05, y= 0.8), 
     label = paste0(
       "Slope: ", signif(slope_uc, digits = 3),
       "\n SE: ", signif(se_uc, digits = 3)
@@ -1493,13 +1490,11 @@ plot_uc <- analysis_df %>%
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
-    panel.grid = element_blank())
+    panel.grid = element_blank()) 
 
-plot_uc
 ```
 
-
-```{r con-house-price, eval = TRUE}
+```{r con-house-price, eval=TRUE}
 
 # Run linear models 
 lm_house_price <- summary(lm(econ_slant ~ median_house_price, data = analysis_df))
@@ -1530,8 +1525,38 @@ plot_house_price <- analysis_df %>%
     panel.grid = element_blank())
 
 plot_house_price
+
 ```
 
+```{r seat-marginality, eval = TRUE}
+
+# Run linear model 
+lm_marg <- summary(lm(econ_slant ~ mean_marginality, data = analysis_df))
+
+slope_marg <- lm_marg$coefficients[[2,1]]
+se_marg <- lm_marg$coefficients[[2,2]]
+
+# Make plot
+
+plot_marginality <- analysis_df %>%
+  ggplot(aes(x=mean_marginality, y = econ_slant)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  geom_text(
+    aes(x=-0.2, y= 0.5), 
+    label = paste0(
+      "Slope: ", signif(slope_marg, digits = 3),
+      "\n SE: ", signif(se_marg, digits = 3)
+    ),
+    size = 3)+  
+  ylim(-1,1) +
+  theme(
+    aspect.ratio = 1,
+    panel.background = element_rect(fill = "white", color = "black"), 
+    panel.grid = element_blank())
+
+plot_marginality
+```
 
 
 ```{r con-age, eval = TRUE}
@@ -1581,8 +1606,8 @@ plot_age_30_64 <- analysis_df %>%
   geom_smooth(method = "lm") +
   geom_text(
     aes(x=0.5, y= 0.5),     label = paste0(
-      "Slope: ", signif(slope_age_29, digits = 3),
-      "\n SE: ", signif(se_age_29, digits = 3)
+      "Slope: ", signif(slope_age_30_64, digits = 3),
+      "\n SE: ", signif(se_age_30_64, digits = 3)
     ),
     size = 3)+  
   ylim(-1,1) +
@@ -1608,8 +1633,8 @@ plot_age_65 <- analysis_df %>%
   geom_text(
     aes(x=0.3, y= 0.5),     
     label = paste0(
-      "Slope: ", signif(slope_age_29, digits = 3),
-      "\n SE: ", signif(se_age_29, digits = 3)
+      "Slope: ", signif(slope_age_65, digits = 3),
+      "\n SE: ", signif(se_age_65, digits = 3)
     ),
     size = 3)+  
   ylim(-1,1) +
@@ -1623,31 +1648,6 @@ plot_age_30_64
 plot_age_65
 ```
 
-```{r pop-density, eval = TRUE}
-
-lm_density <- summary(lm(econ_slant ~ density, data = analysis_df))
-slope_density <- lm_density$coefficients[[2,1]]
-se_density <- lm_density$coefficients[[2,2]]
-
-plot_density <- analysis_df %>%
-  ggplot(aes(x=density, y = econ_slant)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=15000, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_density, digits = 3),
-      "\n SE: ", signif(se_density, digits = 3)
-    ),
-    size = 3)+  
-  ylim(-1,1) +
-  theme(
-    panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
-
-plot_density
-```
 
 ```{r, eval = TRUE}
 # Disconnect from local database
