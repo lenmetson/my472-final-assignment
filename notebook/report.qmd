@@ -1206,6 +1206,9 @@ geog_data <- dbGetQuery(db,
   )  %>%
   replace_na_chr() # When flattening the API responses, we replaced null values with character "NA" values, this function converts them back to NAs that R can recognise.
  
+geog_data <- geog_data %>%
+  mutate(health_welf_bias = health_welf_prop - econ_prop)
+
 # Add all constituencies as base map
 
 # To plot the base map, we want all constituencies, not just ones where questions have been asked.
@@ -1246,6 +1249,16 @@ unlink(temp_geojson) # Delete temporary file
 
 geog_data <- cbind(geog_data, geog_sf)
 geog_data <- st_as_sf(geog_data) # Convert to SF
+
+# Plot bias
+bias_map <- tm_shape(geog_data) +
+  tm_sf(
+    col = "health_welf_bias",
+    title = "Bias",
+   legend.hist = TRUE 
+  ) # +
+  # tm_layout(legend.outside = TRUE) # BUG legend not moving outside 
+
 
 # Plot Econ
 econ_map <- tm_shape(geog_data) +
@@ -1376,6 +1389,9 @@ analysis_df <- analysis_df %>%
     mean_marginality = rowMeans(select(., starts_with("marginality_")))
   ) %>%
   select(-c(marginality_1, marginality_2, marginality_3, marginality_4))
+
+analysis_df <- analysis_df %>%
+  mutate(health_welf_bias = health_welf_prop - econ_prop)
 ```
 ```{r seat-marginality, eval = TRUE}
 
@@ -1720,6 +1736,35 @@ grid.arrange(
 ```
 
 ```{r pop-density, eval = TRUE}
+
+
+lm_density_b <- summary(lm(health_welf_bias ~ density, data = analysis_df))
+
+
+bias_density <- analysis_df %>%
+  ggplot(aes(x=density, y = health_welf_bias)) + 
+  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_smooth(method = "lm") +
+  # geom_text(
+  #   aes(x=-0.2, y= 0.5), 
+  #   label = paste0(
+  #     "Slope: ", signif(slope_density_e, digits = 3),
+  #     "\n SE: ", signif(se_density_e, digits = 3)
+  #   ),
+  #   size = 3)+  
+  theme(
+    panel.background = element_rect(fill = "white", color = "black"), 
+    aspect.ratio = 1
+  )
+
+
+
+
+
+
+
+
+
 # Run linear models 
 lm_density_e <- summary(lm(econ_prop ~ density, data = analysis_df))
 lm_density_h <- summary(lm(health_welf_prop ~ density, data = analysis_df))
