@@ -1494,40 +1494,6 @@ plot_uc <- analysis_df %>%
 
 ```
 
-```{r con-house-price, eval=TRUE}
-
-# Run linear models 
-lm_house_price <- summary(lm(econ_slant ~ median_house_price, data = analysis_df))
-
-
-# Save slope coefficients and SEs for plotting
-
-slope_house_price <- lm_house_price$coefficients[[2,1]]
-se_house_price <- lm_house_price$coefficients[[2,2]]
-
-# Make plot
-
-plot_house_price <- analysis_df %>%
-  ggplot(aes(x=median_house_price, y = econ_slant)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
-  geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=9*10^5, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_house_price, digits = 3),
-      "\n SE: ", signif(se_house_price, digits = 3)
-    ),
-    size = 3) +  
-  ylim(-1,1) +
-  theme(
-    aspect.ratio = 1,
-    panel.background = element_rect(fill = "white", color = "black"), 
-    panel.grid = element_blank())
-
-plot_house_price
-
-```
-
 ```{r seat-marginality, eval = TRUE}
 
 # Run linear model 
