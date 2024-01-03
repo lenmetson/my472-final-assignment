@@ -32,6 +32,7 @@ The data file is populated as the code runs. You do not need to download any fil
         |-- LTDjun2013
             |-- policy_agendas_english.lcd
         |-- policy_topics.zip
+    |-- shpfiles
     |-- whole_UK_shapefile
         |-- Data
             |-- GB 
