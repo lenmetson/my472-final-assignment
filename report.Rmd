@@ -19,7 +19,7 @@ knitr::opts_chunk$set(
     message = FALSE, 
     warning = FALSE, 
     error = FALSE, 
-    fig.width=7, fig.height=6,
+    fig.width=8, fig.height=7,
     fig.align='center') 
 
 ```
@@ -1013,7 +1013,6 @@ dbWriteTable(db, "constituencies", cons, overwrite = TRUE)
 
 ```
 
-
 ```{r pull-party-info}
 
 response <- httr::GET("https://members-api.parliament.uk/api/Parties/GetActive/1") %>%
@@ -1319,7 +1318,14 @@ hist <- analysis_df %>%
     panel.background = element_rect(fill = "white", color = "black"), 
     panel.grid = element_blank())
 
-hist
+hist +  
+  ggplot2::annotate("segment", y =  -20 , yend = -20, x = -0.15, xend = -0.95, arrow = arrow()) + 
+  ggplot2::annotate("segment", y =  -20 , yend =  -20, x = 0.15, xend = 0.95, arrow = arrow()) + 
+  ggplot2::annotate("text", y = -25, x = -0.5, label = "More health & welfare", size = 3) +
+  ggplot2::annotate("text", y = -25, x = 0.5, label = "More economic", size = 3) +
+  coord_cartesian(xlim = c(-1,1),  ylim=c(0, 150), clip="off") +
+  theme(plot.margin = unit(c(1,1,4,1), "lines"))
+
 ```
 
 Figure 1 shows that most MPs have no  slant and that there is a slight skew towards health & welfare questions. 
@@ -1409,22 +1415,21 @@ geog_data <- st_as_sf(geog_data) # Convert to SF
 
 ```
 
-Figure 2 shows the geographic distribution of economic slant across the UK. Whilst there is no clear regional pattern, it seems that small clusters of urban areas, such as the North of Wales and North West of England appear to be slightly more focused on health & welfare.
+Figure 2 shows the geographic distribution of question slant across the UK. Whilst there is no clear regional pattern, it seems that small clusters of urban areas, such as the North of Wales and North West of England appear to be slightly more focused on health & welfare.
 
-```{r plot-map, eval = TRUE, fig.width = 40, fig.height =60, fig.cap= "Map showing the geographic distribution of question slant. A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues. Constituencies shown as white are where the MP asked no oral or written questions in 2023."}
+```{r plot-map, eval = TRUE, fig.width = 40, fig.height =60, fig.cap= "Map showing the geographic distribution of question slant. A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues. Constituencies shown as grey are where the MP asked no oral or written questions in 2023."}
 
 
 map <- 
   tm_shape(basemap_sf) +
-  tm_sf(col = "white") +
+  tm_sf(col = "lightgrey") +
   tm_shape(geog_data) +
   tm_polygons(
     col = "econ_slant",
     style = "cont",
     midpoint = 0,
     title = "Question topic slant",
-    palette = "RdBu",
-   #legend.hist = TRUE 
+    palette = "RdBu"
   ) +
   tm_legend(
     legend.position = c("right", "center"),
@@ -1432,8 +1437,9 @@ map <-
     legend.text.size = 4
   ) +
   tm_layout(
-    title = "Distribution of question topic slant across UK Constituencies.\n\n", 
-    title.size = 9
+    main.title = "Distribution of question topic slant across UK Constituencies", 
+    main.title.size = 5,
+    main.title.position = "left"
   )
 
 map
@@ -1449,26 +1455,35 @@ se_density <- lm_density$coefficients[[2,2]]
 
 plot_density <- analysis_df %>%
   ggplot(aes(x=density, y = econ_slant)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_point(alpha = 0.5) + 
   geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=15000, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_density, digits = 3),
-      "\n SE: ", signif(se_density, digits = 3)
-    ),
-    size = 3)+  
   labs(
-    title = "Correlation between population density of an MP's consitutency and their question slant in 2023", 
+    title = "Correlation between population density of an MP's consitutency\nand their question slant in 2023", 
     x = "Population density in 2023 (people per km^2)", 
-    y = "Slant") +
+    y = "Slant\n\n") +
   ylim(-1,1) +
   theme(
     panel.background = element_rect(fill = "white", color = "black"), 
-    aspect.ratio = 1
-  )
+    aspect.ratio = 1, 
+    panel.grid = element_blank()
+  ) 
 
-plot_density
+# Add axis labels # NOTE: based on https://stackoverflow.com/questions/12409960/ggplot2-annotate-outside-of-plot and https://stackoverflow.com/questions/10836843/ggplot2-plot-area-margins
+
+plot_density +  
+  geom_text(
+    aes(x=20000, y= slope_density*20000), 
+    label = paste0(
+      "Slope: ", signif(slope_density, digits = 3),
+      "\n SE: ", signif(se_density, digits = 3)
+    ), size = 3)+ 
+  ggplot2::annotate("segment", x =  -3000 , xend = -3000, y = -0.15, yend = -0.9, arrow = arrow()) + 
+  ggplot2::annotate("segment", x =  -3000 , xend =  -3000, y = 0.15, yend = 0.9, arrow = arrow()) + 
+  ggplot2::annotate("text", x = -3500, y = -0.5, label = "More health & welfare", size = 3, angle = 90) +
+   ggplot2::annotate("text", x = -3500, y = 0.5, label = "More economic", size = 3, angle = 90) +
+  
+  coord_cartesian(xlim = c(0,17000),  ylim=c(-1, 1), clip="off") +
+  theme(plot.margin = unit(c(1,6,1,3), "lines"))
 ```
 
 Figure 4 shows the correlation between slant and the number of households claiming universal credit (UC) in the constituency. Surprisingly, there is no overall relationship between the density of UC claimants and focus on health and welfare issues.
@@ -1488,28 +1503,37 @@ se_uc <- lm_uc$coefficients[[2,2]]
 
 plot_uc <- analysis_df %>%
   ggplot(aes(x=uc_claimants, y = econ_slant)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_point(alpha = 0.5) + 
   geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=5000, y= 0.8), 
-    label = paste0(
-      "Slope: ", signif(slope_uc, digits = 3),
-      "\n SE: ", signif(se_uc, digits = 3)
-    ),
-    size = 3) +  
   labs(
-    title = "Correlation between the number of households claiming Universal Credit in an MP's consitutency and their question slant in 2023", 
-    x = "Proportion of population claiming Universal Credit", 
-    y = "Slant") +  
+    title = "Correlation between the number of households claiming\nUniversal Credit in an MP's consitutency and their question\nslant in 2023", 
+    x = "Number of households claiming Universal Credit in 2023", 
+    y = "Slant\n\n") +  
   ylim(-1,1) +
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
     panel.grid = element_blank()) 
 
+
+plot_uc +  
+  geom_text(
+    aes(x=26000, y= slope_uc*26000), 
+    label = paste0(
+      "Slope: ", signif(slope_uc, digits = 3),
+      "\n SE: ", signif(se_uc, digits = 3)
+    ), size = 3)+ 
+  ggplot2::annotate("segment", x =  -2700 , xend = -2700, y = -0.15, yend = -0.9, arrow = arrow()) + 
+  ggplot2::annotate("segment", x =  -2700 , xend =  -2700, y = 0.15, yend = 0.9, arrow = arrow()) + 
+  ggplot2::annotate("text", x = -3300, y = -0.5, label = "More health & welfare", size = 3, angle = 90) +
+  ggplot2::annotate("text", x = -3300, y = 0.5, label = "More economic", size = 3, angle = 90) +
+  
+  coord_cartesian(xlim = c(1000,22000),  ylim=c(-1, 1), clip="off") +
+  theme(plot.margin = unit(c(1,6,1,3), "lines"))
+
 ```
 
-Finally, Figure 6 shows that the slant of an MP’s question is uncorrelated with the marginality of their seat. 
+Finally, Figure 5 shows that the slant of an MP’s question is uncorrelated with the marginality of their seat. 
 
 ```{r seat-marginality, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about helath and welfare issues, a score of 1 indicates all questions were about economic issues. Seat marginality as the average majority that an MP’s party won in the previous four elections in the constituency the MP currently represents. Higher values for marginality indicate safer seats."}
 
@@ -1523,26 +1547,33 @@ se_marg <- lm_marg$coefficients[[2,2]]
 
 plot_marginality <- analysis_df %>%
   ggplot(aes(x=mean_marginality, y = econ_slant)) + 
-  geom_point(size = 0.5, alpha = 0.5) + 
+  geom_point(alpha = 0.5) + 
   geom_smooth(method = "lm") +
-  geom_text(
-    aes(x=-0.2, y= 0.5), 
-    label = paste0(
-      "Slope: ", signif(slope_marg, digits = 3),
-      "\n SE: ", signif(se_marg, digits = 3)
-    ),
-    size = 3) +  
   labs(
-    title = "Correlation between an MP's seat marginality and their question slant in 2023", 
-    x = "Seat marginality", 
-    y = "Slant") +  
+    title = "Correlation between an MP's seat marginality and their\nquestion slant in 2023", 
+    x = "Seat marginality in previous four election", 
+    y = "Slant\n\n") +  
   ylim(-1,1) +
   theme(
     aspect.ratio = 1,
     panel.background = element_rect(fill = "white", color = "black"), 
     panel.grid = element_blank())
 
-plot_marginality
+plot_marginality +  
+  geom_text(
+    aes(x=0.55, y= slope_marg*0.55), 
+    label = paste0(
+      "Slope: ", signif(slope_marg, digits = 3),
+      "\n SE: ", signif(se_marg, digits = 3)),
+    size = 3) + 
+  ggplot2::annotate("segment", x =  -0.42 , xend = -0.42, y = -0.15, yend = -0.9, arrow = arrow()) + 
+  ggplot2::annotate("segment", x =  -0.42 , xend =  -0.42, y = 0.15, yend = 0.9, arrow = arrow()) + 
+  ggplot2::annotate("text", x = -0.45, y = -0.5, label = "More health & welfare", size = 3, angle = 90) +
+  ggplot2::annotate("text", x = -0.45, y = 0.5, label = "More economic", size = 3, angle = 90) +
+  
+  coord_cartesian(xlim = c(-0.3,0.43),  ylim=c(-1, 1), clip="off") +
+  theme(plot.margin = unit(c(1,6,1,3), "lines"))
+
 ```
 
 Overall, I find that characteristic of an MPs constituency do not particularly discriminate whether they focus on economic or health & welfare issues.
