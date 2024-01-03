@@ -1222,7 +1222,7 @@ analysis_df <- dbGetQuery(
   
   LEFT JOIN constituencies ON members.latest_constituency = constituencies.constituency_id
   LEFT JOIN parties ON parties.party_id = members.latest_party_id
-  
+
   GROUP BY members.member_id
   "
   )  %>%
@@ -1334,7 +1334,7 @@ geog_data <- geog_data %>%
 # For reproducibility, the following code downloads and processes the data programmatically
 # To download manually, use https://osdatahub.os.uk/downloads/open/BoundaryLine
 
-if (!file.exists("data/whole_UK_shapefile/Data/GB/westminster_const_region.shp")) {
+if (!file.exists("data/whole_UK_shapefile/Data/GB/westminster_const_region.shp")) { # BUG reads from notebook folder, not data
 
 options(timeout=600) # Takes some time to download so we need to increase the "timeout" setting
 
@@ -1359,8 +1359,7 @@ file.remove("data/whole_UK_shapefile/OS_zip.zip")
 
 basemap_sf <- 
   st_read(
-    dsn = "data/whole_UK_shapefile/Data/GB/westminster_const_region.shp") #  %>%
- # filter() # FIXME keep only England and Wales
+    dsn = "data/whole_UK_shapefile/Data/GB/westminster_const_region.shp")
 
 # Make shape files for constituencies in the database
 

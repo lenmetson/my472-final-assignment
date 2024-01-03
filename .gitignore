@@ -58,6 +58,12 @@ rsconnect/
 *.Rds
 *.RDS
 
+# Shape files
+*.dbf
+*.prj
+*.shp
+*.shx
+
 # Keys 
 *.env
 *.Renviron
@@ -66,6 +72,7 @@ rsconnect/
 # Default to ignoring files in the database and notebook folders
 
 data/*
+
 
 
 # Exceptions 
