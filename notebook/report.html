@@ -4399,7 +4399,7 @@ econ\_slant = \frac{N (economic)}{N(questions)} - \frac{N(health\_welfare)}{N(qu
 <span id="cb1-1152"><a href="#cb1-1152" aria-hidden="true" tabindex="-1"></a>bias_map <span class="ot">&lt;-</span> <span class="fu">tm_shape</span>(geog_data) <span class="sc">+</span></span>
 <span id="cb1-1153"><a href="#cb1-1153" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tm_sf</span>(</span>
 <span id="cb1-1154"><a href="#cb1-1154" aria-hidden="true" tabindex="-1"></a>    <span class="at">col =</span> <span class="st">&quot;econ_slant&quot;</span>,</span>
-<span id="cb1-1155"><a href="#cb1-1155" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">&quot;Bias&quot;</span>,</span>
+<span id="cb1-1155"><a href="#cb1-1155" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">&quot;Bias&quot;</span>, <span class="co"># </span><span class="al">TODO</span><span class="co"> change pallete</span></span>
 <span id="cb1-1156"><a href="#cb1-1156" aria-hidden="true" tabindex="-1"></a>   <span class="at">legend.hist =</span> <span class="cn">TRUE</span> </span>
 <span id="cb1-1157"><a href="#cb1-1157" aria-hidden="true" tabindex="-1"></a>  ) <span class="co"># +</span></span>
 <span id="cb1-1158"><a href="#cb1-1158" aria-hidden="true" tabindex="-1"></a>  <span class="co"># tm_layout(legend.outside = TRUE) # </span><span class="al">BUG</span><span class="co"> legend not moving outside </span></span>
