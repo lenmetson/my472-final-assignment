@@ -1087,14 +1087,11 @@ question_text$question_text <- question_text$question_text %>%
     tm::removePunctuation() # remove punctuation
 
 # Define dictionaries 
-# CANDO: better define dictionaries
 
-# NOTE Citation Albugh, Quinn, Julie Sevenans and Stuart Soroka. 2013. Lexicoder Topic Dictionaries, June 2013 versions, McGill University, Montreal, Canada.
+# NOTE Citation: Albugh, Quinn, Julie Sevenans and Stuart Soroka. 2013. Lexicoder Topic Dictionaries, June 2013 versions, McGill University, Montreal, Canada.
 
 # Download Lexicon Policy Topic Dictionaries 
 if (!file.exists("data/lexicoder_dictionaries/LTDjun2013/policy_agendas_english.lcd")) {
-
-# PICKUP
 
   dir.create("data/lexicoder_dictionaries")
   download.file(
@@ -1413,7 +1410,7 @@ geog_data <- st_as_sf(geog_data) # Convert to SF
 
 ```
 
-```{r plot-map, eval = TRUE}
+```{r plot-map, eval = TRUE, fig.width = 40, fig.height =60, fig.align = 'center'}
 # Plot bias
 
 bias_map <- 
@@ -1424,12 +1421,12 @@ bias_map <-
     col = "econ_slant",
     style = "cont",
     midpoint = 0,
-    title = "Economic bias",
+    title = "Economic slant",
     palette = "RdBu",
    #legend.hist = TRUE 
   ) +
   tm_legend(
-    #legend.outside=TRUE
+    legend.outside=TRUE
   )
 
 bias_map
