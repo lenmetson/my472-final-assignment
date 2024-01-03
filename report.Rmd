@@ -1,10 +1,11 @@
 ---
-title: "MY472 Summative 3 Project"
-subtitle: "What, if any, characteristics and factors discriminate MPs who tend to ask questions about economic issues from MPs who tend to ask questions about health and welfare issues?"
+title: "What, if any, characteristics and factors discriminate MPs who tend to ask questions about economic issues from MPs who tend to ask questions about health and welfare issues?" 
+subtitle: "MY472 Summative 3 Project"
 author: "Candidate 30552"
-format: 
-    html:
-        embed-resources: true 
+date: "2024-01-10"
+output: 
+  bookdown::html_document2:
+    number_sections: false
 ---
 
 Link to public GitHub repository: [https://github.com/lenmetson/my472-final-assignment](https://github.com/lenmetson/my472-final-assignment).
@@ -1376,7 +1377,7 @@ dir.create("data/whole_UK_shapefile")
 download.file("https://api.os.uk/downloads/v1/products/BoundaryLine/downloads?area=GB&format=ESRI%C2%AE+Shapefile&redirect", "data/whole_UK_shapefile/OS_zip.zip") #
 options(timeout=60) # Reset timeout
 
-# unzip 
+# unzip # FIXME not working 
 unzip(
   "data/whole_UK_shapefile/OS_zip.zip", 
   files = c(
@@ -1387,7 +1388,7 @@ unzip(
   exdir = "data/whole_UK_shapefile", 
   overwrite = TRUE)
 
-file.remove("data/whole_UK_shapefile/OS_zip.zip")
+#file.remove("data/whole_UK_shapefile/OS_zip.zip")
 
 }
 
