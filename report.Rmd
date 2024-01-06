@@ -10,7 +10,7 @@ output:
 
 Link to public GitHub repository: [https://github.com/lenmetson/my472-final-assignment](https://github.com/lenmetson/my472-final-assignment).
 
-Words: 743
+Words: 748
 
 ```{r, include = FALSE} 
 knitr::opts_chunk$set(
@@ -97,13 +97,13 @@ db <- DBI::dbConnect(RSQLite::SQLite(), here("data/parliament_database.sqlite"))
 
 # Introduction 
 
-The purpose of parliamentary questions are for MPs to represent their constituents’ interests. Therefore, I focus on asking what demographic factors about the constituency an MP represents drives their focus on economic or health and welfare topics. 
+The purpose of parliamentary questions are for MPs to represent their constituents’ interests. In this project, I focus on asking whether demographic factors of an MP’s constituency discriminates whether they tend to ask economic or health & welfare questions.
 
 # Data
 
-I drew on data from two sources: the UK Parliament API (“API”), and the [UK House of Commons constituency dashboard](https://commonslibrary.parliament.uk/constituency-dashboard/) (“dashboard”). I limit my analysis to questions asked in 2023. 
+I drew on data from two sources: (1) the UK Parliament API (“API”), and (2) the [UK House of Commons constituency dashboard](https://commonslibrary.parliament.uk/constituency-dashboard/) (“dashboard”). I limit my analysis to questions asked in 2023. 
 
-First, I pulled the text of questions from the API oral and written question endpoints. The API only returns oral questions asked in the House of Commons (HoC). However, it returns written questions from both the House of Lords (HoL) and the HoC. Therefore, when requesting the written question endpoint, I added a parameter to filter questions from the HoC. I merged oral and written questions into one table: `questions`. 
+First, I pulled the text of questions from the API oral and written question endpoints. The API only returns oral questions asked in the House of Commons (HoC). However, it returns written questions from both the House of Lords (HoL) and the HoC. Therefore, when requesting the written question endpoint, I filtered questions to ones from the HoC. I merged oral and written questions into one table: `questions`. 
 
 For each question, I wanted to be able to pull additional information about the MP. Some MP characteristics – e.g. their party - change over time. Thus, I queried the API for each unique MP-date pair from my `questions` table.
 
@@ -1577,7 +1577,7 @@ plot_density +
   theme(plot.margin = unit(c(1,6,1,3), "lines"))
 ```
 
-Finally, the relationship between health & welfare questions and population could be driven by more welfare recipients living in urban areas. Figure 5, however, shows there is no overall relationship – whether controls are added or not - between the number of households receiving universal claimants and focus on health and welfare issues. 
+Finally, the relationship between health & welfare questions and population could be driven by more welfare recipients living in urban areas. Figure 5, however, shows there is no overall relationship – whether controls are added or not - between the number of households receiving universal claimants and focus on health & welfare issues. 
 
 ```{r con-uc-claimants, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues."}
 
@@ -1630,7 +1630,7 @@ plot_uc +
 
 ```
 
-Overall, controlling for an MP’s party and marginality, the urbaneness of an MP's seat does not appear to predict question slant. This suggests that other factors about an MP’s seat, or factors related to the MP themselves – such as their party -  may be better discriminators of question topic.
+Overall, controlling for an MP’s party and marginality, the urbaneness of an MP's seat does not appear to predict question slant. This suggests that other factors about an MP’s seat, or factors related to the MP themselves – e.g. their party -  may be better discriminators of whether they ask economic or health & welfare questions.
 
 
 ```{r, eval = TRUE}
