@@ -1251,7 +1251,8 @@ analysis_df <- dbGetQuery(
   SELECT 
 
     members.name_display AS MP,
-    parties.party_abbreviation AS party_abbreviation, 
+    parties.party_abbreviation AS party_abbreviation,
+    parties.party_name AS party,
     
     SUM(question_topics.is_econ)/COUNT(*) AS econ_prop,
     SUM(question_topics.is_health_welf)/COUNT(*) AS health_welf_prop,
