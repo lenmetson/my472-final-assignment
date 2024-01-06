@@ -1493,7 +1493,7 @@ map
 
 To explore this further, Figure 3 shows, that population density is correlated with having a stronger focus on health & welfare compared to economic issues. This suggests that one factor which drives whether MPs focus on different topics in their questions is how urban the constituency they represent is. 
 
-```{r pop-density, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about helath and welfare issues, a score of 1 indicates all questions were about economic issues."}
+```{r pop-density, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues."}
 
 lm_density <- summary(lm(econ_slant ~ density, data = analysis_df))
 slope_density <- lm_density$coefficients[[2,1]]
@@ -1532,7 +1532,7 @@ plot_density +
 
 Figure 4 shows the correlation between slant and the number of households claiming universal credit (UC) in the constituency. Surprisingly, there is no overall relationship between the density of UC claimants and focus on health and welfare issues.
 
-```{r con-uc-claimants, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about helath and welfare issues, a score of 1 indicates all questions were about economic issues."}
+```{r con-uc-claimants, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues."}
 
 # Run linear model
 lm_uc <- summary(lm(econ_slant ~ uc_claimants, data = analysis_df))
@@ -1579,7 +1579,7 @@ plot_uc +
 
 Finally, Figure 5 shows that the slant of an MP’s question is uncorrelated with the marginality of their seat. 
 
-```{r seat-marginality, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about helath and welfare issues, a score of 1 indicates all questions were about economic issues. Seat marginality as the average majority that an MP’s party won in the previous four elections in the constituency the MP currently represents. Higher values for marginality indicate safer seats."}
+```{r seat-marginality, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues. Seat marginality as the average majority that an MP’s party won in the previous four elections in the constituency the MP currently represents. Higher values for marginality indicate safer seats."}
 
 # Run linear model 
 lm_marg <- summary(lm(econ_slant ~ mean_marginality, data = analysis_df))
