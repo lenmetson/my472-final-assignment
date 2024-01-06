@@ -4,26 +4,13 @@ The final report can be found here [as an html file](report.html) or [as the raw
 
 ## Running the code
 
-Some code chunks take a long time to run because they query. The `scripts/` folder contains separate R scripts for any code which takes more than a few minutes to run. These scripts can be run using the bash package `screen` in the background of your own device or any remote device you might use. These scripts also contain additional progress messages compared to the code contained in the [markdown file](report.Rmd). At the start of each chunk where there is a separated R script, there will be a comment identifying which script to run.
+Querying and scraping code chunks take a long time to run. The `scripts/` folder contains separate R scripts for any code which takes more than a few minutes to run. These scripts can be run using the bash package `screen` in the background of your own device or any remote device you might use. These scripts also contain additional progress messages compared to the code contained in the [markdown file](report.Rmd). At the start of each chunk where there is a separated R script, there will be a comment identifying which script to run.
 
-This being said, all code is included in the [markdown document](report.Rmd). It can be run end-to-end by changing `eval = FALSE` to `eval = TRUE` and knitting the whole document. 
-
-```{r}
-knitr::opts_chunk$set(
-    echo = FALSE, 
-    eval = FALSE, # Change to eval = TRUE
-    message = FALSE, 
-    warning = FALSE)
-
-```
-
-Or the code can be run by running each code chunk in order within the [markdown file](report.Rmd). 
+This being said, all code is included in the [markdown document](report.Rmd). It can be run end-to-end by changing `eval = FALSE` to `eval = TRUE` and knitting the whole document. Or the code can be run by running each code chunk in order within the [markdown file](report.Rmd). 
 
 ## Untracked files
 
-The folder `data/` contains untracked data files. 
-
-The data file is populated as the code runs. You do not need to download any files manually.  After running all code, the data file should include the following files: 
+The folder `data/` contains untracked data files. The data file is populated as the code runs. **You do not need to download any files manually.** After running all code, the data file should include the following files: 
 
 ```
 |-- data 
