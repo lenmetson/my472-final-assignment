@@ -1087,7 +1087,7 @@ dbWriteTable(db, "parties", parties_df, overwrite = TRUE)
 
 ```
 
-To measure whether a question is about (1) economic issues or (2) health and welfare, I used a simple dictionary approach. Whilst limited compared to machine learning classification approaches, dictionary string matching was more feasible for this project. I used pre-defined policy topic dictionaries from [Lexicoder](https://www.snsoroka.com/data-lexicoder) (Albugh, et al., 2013). I wrote out the results of my measurement to the table `question_topics`. 
+To measure whether a question is about (1) economic or (2) health and welfare issues, I used a simple dictionary approach. Whilst limited compared to machine learning classification approaches, dictionary string matching was more feasible for this project. I used pre-defined policy topic dictionaries from [Lexicoder](https://www.snsoroka.com/data-lexicoder) (Albugh, et al., 2013). I wrote out the results of my measurement to the table `question_topics`. 
 
 ```{r measure-topics}
 
@@ -1227,7 +1227,7 @@ $$
 slant = \frac{N (economic)}{N(questions)} - \frac{N(health\_welfare)}{N(questions)}  
 $$
 
-This measure ranges from -1 to 1. A value of -1 indicates a perfect health & welfare slant – I.e. the MP only asks health & welfare questions - and a value of 1 indicates a perfect economic slant. 
+This measure ranges from -1 to 1. A value of -1 indicates a perfect health & welfare slant – i.e. the MP only asks health & welfare questions - and a value of 1 indicates a perfect economic slant. 
 
 ```{r read-in-analysis-data, eval = TRUE}
 
@@ -1367,7 +1367,7 @@ hist +
 
 ```
 
-Figure 1 shows that most MPs have no slant but there is a slight skew towards health & welfare questions. Breaking this down by the two main parties, Figure 2 shows that Conservative MPs still slightly skewed towards health & welfare, but much less than Labour MPs. 
+*Figure 1* shows that most MPs have no slant but there is a slight skew towards health & welfare questions. Breaking this down by the two main parties, *Figure 2* shows that Conservative MPs still slightly skewed towards health & welfare, but much less than Labour MPs. 
 
 ```{r hist-party, eval = TRUE, fig.cap="Distribution of slant variable for oral and written questions asked by MPs in 2023 amongst MPs in the two main parties. Black line indicates where there is no slant."}
 
@@ -1499,9 +1499,9 @@ geog_data <- st_as_sf(geog_data) # Convert to SF
 
 ```
 
-Figure 3 shows the geographic distribution of question slant. Whilst there is no clear regional pattern, it seems that urban areas, such as the North of Wales and North West of England appear to be slightly more focused on health & welfare. Thus, MPs’ slant is potentially correlated with urbaneness of their constituency.
+*Figure 3* shows the geographic distribution of question slant. Whilst there is no clear regional pattern, it seems that urban areas, such as the North of Wales and North West of England appear to be slightly more focused on health & welfare. Thus, MPs’ slant is potentially correlated with urbaneness of their constituency.
 
-```{r plot-map, eval = TRUE, fig.width = 40, fig.height =60, fig.cap= "Map showing the geographic distribution of question slant. A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues. Constituencies shown as grey are where the MP asked no oral or written questions in 2023."}
+```{r plot-map, eval = TRUE, fig.width = 25, fig.height = 40, fig.cap= "Map showing the geographic distribution of question slant. A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues. Constituencies shown as grey are where the MP asked no oral or written questions in 2023."}
 
 
 map <- 
@@ -1517,19 +1517,19 @@ map <-
   ) +
   tm_legend(
     legend.position = c("right", "center"),
-    legend.title.size = 5,
-    legend.text.size = 4
+    legend.title.size = 4,
+    legend.text.size = 3
   ) +
   tm_layout(
     main.title = "Distribution of question topic slant across UK Constituencies", 
-    main.title.size = 5,
+    main.title.size = 4,
     main.title.position = "left"
   )
 
 map
 ```
 
-Exploring this, I correlate population density with slant. Figure 4 shows population density is correlated with having a stronger focus on health & welfare compared to economic issues. However, urban places may tend to be represented by Labour MPs, or may be more electorally competitive. Therefore, I add controls for party and seat marginality (defined as the mean majority an MP’s party won in the previous four elections). Adding these controls eliminates the correlation.  
+Exploring this, I correlate population density with slant. *Figure 4* shows population density is correlated with having a stronger focus on health & welfare compared to economic issues. However, urban places may tend to be represented by Labour MPs, or may be more electorally competitive. Therefore, I add controls for party and seat marginality (defined as the mean majority an MP’s party won in the previous four elections). Adding these controls eliminates the correlation.  
 
 ```{r pop-density, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues."}
 
@@ -1577,7 +1577,7 @@ plot_density +
   theme(plot.margin = unit(c(1,6,1,3), "lines"))
 ```
 
-Finally, the relationship between health & welfare questions and population could be driven by more welfare recipients living in urban areas. Figure 5, however, shows there is no overall relationship – whether controls are added or not - between the number of households receiving universal claimants and focus on health & welfare issues. 
+Finally, the relationship between health & welfare questions and population could be driven by more welfare recipients living in urban areas. *Figure 5*, however, shows there is no overall relationship – whether controls are added or not - between the number of households receiving universal claimants and focus on health & welfare issues. 
 
 ```{r con-uc-claimants, eval = TRUE, fig.cap = "A slant score of -1 indicates all questions were about health and welfare issues, a score of 1 indicates all questions were about economic issues."}
 
